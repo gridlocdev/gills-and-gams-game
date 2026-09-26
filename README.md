@@ -37,7 +37,7 @@ The pitch is small on purpose, so matches are about positioning, movement tech a
 | macOS, Apple Silicon | Supported and tested. Can be packaged as a `.app`. |
 | macOS, Intel | Builds as part of the universal `.app`, not yet tested on Intel hardware. |
 | Linux x64 | Packaged as a self-contained tarball, but untested. |
-| Windows x64 | Should run with `dotnet run` (raylib ships a native library for it), but untested. No packaged build yet. |
+| Windows x64 | Packaged as a self-contained zip, but untested. |
 
 The packaged app targets macOS 12 or later.
 
@@ -156,6 +156,7 @@ Contributions are welcome, especially new mutations, better CPU tactics, comment
 | `just icon` | Re-render the app icon from the in-game fish model |
 | `just build-macos` / `just build-macos-universal` | Package `Gills & Gams.app` into `dist/` |
 | `just build-linux` | Package a Linux x64 tarball into `dist/` |
+| `just build-windows` | Package a Windows x64 zip into `dist/` |
 | `just run-macos` | Package and launch the app |
 | `just install-macos` / `just uninstall-macos` | Install to / remove from `~/Applications` |
 
