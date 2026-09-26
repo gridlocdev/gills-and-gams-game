@@ -44,8 +44,8 @@ The packaged app targets macOS 12 or later.
 You need the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). [just](https://github.com/casey/just) is optional but handy.
 
 ```sh
-git clone <this repo>
-cd fish-legs-soccer
+git clone https://github.com/gridlocdev/gills-and-gams-game.git
+cd gills-and-gams-game
 dotnet run          # or: just run
 ```
 
