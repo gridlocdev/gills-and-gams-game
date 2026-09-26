@@ -357,7 +357,13 @@ public class Game
                 Audio.Play(Sfx.Blip);
             }
         }
-        if (paused) return;
+        if (paused)
+        {
+            // Don't let menu presses leak into gameplay (e.g. A to resume also jumping).
+            pending[0].ClearEdges();
+            pending[1].ClearEdges();
+            return;
+        }
 
         if (state == State.Kickoff && stateTime >= 2.0f)
         {
