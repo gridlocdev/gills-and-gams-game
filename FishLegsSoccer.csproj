@@ -7,6 +7,8 @@
     <Nullable>disable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RootNamespace>FishLegs</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>Gills &amp; Gams</Product>
   </PropertyGroup>
 
   <ItemGroup>

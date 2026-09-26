@@ -16,9 +16,11 @@ static class Program
         Draw.Init();
         Prompts.Load();
         MacPermissions.Request();
-        if (args.Contains("--controllers"))
+        int iconArg = Array.IndexOf(args, "--render-icon");
+        if (args.Contains("--controllers") || iconArg >= 0)
         {
-            ControllerCheck.Run(args.Contains("--report"));
+            if (iconArg >= 0) IconRenderer.Render(iconArg + 1 < args.Length ? args[iconArg + 1] : "assets/icon/AppIcon.png");
+            else ControllerCheck.Run(args.Contains("--report"));
             Prompts.Unload();
             Raylib.UnloadShader(Draw.Lit);
             Audio.Shutdown();

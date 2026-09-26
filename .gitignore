@@ -431,7 +431,7 @@ test-results/
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
 
 
 # Thumbnails
@@ -483,3 +483,7 @@ $RECYCLE.BIN/
 
 # Full Kenney input prompts pack (the icons we use are copied to assets/input-prompts/)
 assets/kenney_input-prompts_1.4.1/
+
+# Packaging output (scripts/package-mac.sh)
+build/
+dist/
