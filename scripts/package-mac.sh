@@ -3,6 +3,8 @@
 #
 #   scripts/package-mac.sh [--arch arm64|x64|universal] [--out DIR]
 #
+# APP_VERSION overrides the <Version> from the .csproj (the release workflow sets it from the git tag).
+#
 # Signing: ad-hoc by default (fine for your own Mac). Set MAC_SIGN_IDENTITY to a
 # "Developer ID Application: ..." identity to sign with the hardened runtime for distribution
 # (notarise afterwards with `xcrun notarytool`).
@@ -23,13 +25,13 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --arch) ARCH="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 [[ "$ARCH" =~ ^(arm64|x64|universal)$ ]] || { echo "--arch must be arm64, x64 or universal" >&2; exit 1; }
 
-VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$PROJECT" | head -1)"
+VERSION="${APP_VERSION:-$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$PROJECT" | head -1)}"
 VERSION="${VERSION:-0.1.0}"
 BUILD_DIR="build/mac"
 
@@ -37,7 +39,7 @@ publish() {
   local rid="osx-$1"
   echo "==> Publishing $rid"
   dotnet publish "$PROJECT" -c Release -r "$rid" --self-contained true \
-    -p:UseAppHost=true -p:DebugType=None -p:GenerateDocumentationFile=false \
+    -p:UseAppHost=true -p:Version="$VERSION" -p:DebugType=None -p:GenerateDocumentationFile=false \
     -o "$BUILD_DIR/publish-$1" --nologo -v quiet
 }
 

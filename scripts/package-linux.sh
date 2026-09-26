@@ -3,6 +3,8 @@
 #
 #   scripts/package-linux.sh [--out DIR]
 #
+# APP_VERSION overrides the <Version> from the .csproj (the release workflow sets it from the git tag).
+#
 # Output: DIR/gills-and-gams-<version>-linux-x64.tar.gz, which unpacks to gills-and-gams/.
 # Only x64 is supported: raylib-cs ships no linux-arm64 native library.
 # Can be run from macOS or Linux.
@@ -20,12 +22,12 @@ OUT="dist"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --out) OUT="$2"; shift 2 ;;
-    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 
-VERSION="$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$PROJECT" | head -1)"
+VERSION="${APP_VERSION:-$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$PROJECT" | head -1)}"
 VERSION="${VERSION:-0.1.0}"
 BUILD_DIR="build/linux"
 STAGE="$BUILD_DIR/$PKG_NAME"
@@ -38,7 +40,7 @@ fi
 
 echo "==> Publishing $RID"
 dotnet publish "$PROJECT" -c Release -r "$RID" --self-contained true \
-  -p:UseAppHost=true -p:DebugType=None -p:GenerateDocumentationFile=false \
+  -p:UseAppHost=true -p:Version="$VERSION" -p:DebugType=None -p:GenerateDocumentationFile=false \
   -o "$STAGE" --nologo -v quiet
 
 cp "$ICON_PNG" "$STAGE/icon.png"
