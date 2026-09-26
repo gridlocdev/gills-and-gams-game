@@ -42,7 +42,7 @@ The packaged app targets macOS 12 or later.
 
 ### Run from source
 
-You need the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). [just](https://github.com/casey/just) is optional but handy.
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). [just](https://github.com/casey/just) is optional but handy.
 
 ```sh
 git clone https://github.com/gridlocdev/gills-and-gams-game.git
@@ -143,7 +143,7 @@ Contributions are welcome, especially new mutations, better CPU tactics, comment
 
 ### Development setup
 
-- .NET 8 SDK
+- .NET 10 SDK
 - [just](https://github.com/casey/just) (optional)
 - macOS for building the `.app` (uses `sips`, `iconutil`, `lipo` and `codesign`)
 
