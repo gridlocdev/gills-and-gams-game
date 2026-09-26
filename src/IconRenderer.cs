@@ -22,13 +22,13 @@ static class IconRenderer
         fish.S.HairDensity = 1.6f;      // it's an icon; the legs deserve to be seen
 
         var ball = game.Ball;
-        ball.Pos = new Vector3(1.35f, ball.R, 0.75f);
+        ball.Pos = new Vector3(1.25f, ball.R, 0.9f);
         ball.Rot = Quaternion.CreateFromYawPitchRoll(0.6f, 0.4f, 0.2f);
 
         var cam = new Camera3D
         {
-            Position = new Vector3(1.5f, 2.3f, 9.6f),
-            Target = new Vector3(0.1f, 1.3f, 0),
+            Position = new Vector3(1.3f, 2.0f, 7.4f),
+            Target = new Vector3(0.2f, 1.25f, 0),
             Up = Vector3.UnitY,
             FovY = 33,
             Projection = CameraProjection.Perspective,
@@ -37,11 +37,11 @@ static class IconRenderer
         Raylib.BeginTextureMode(rt);
         Raylib.ClearBackground(new Color(0, 0, 0, 0));
 
-        // macOS icon grid: an 824px rounded square centred in the 1024px canvas.
+        // Full-bleed, opaque square: macOS applies its own rounded mask. Any transparent margin makes
+        // macOS 26+ shrink the artwork onto a grey tile instead.
         float s = Supersample;
-        var body = new Rectangle(100 * s, 100 * s, 824 * s, 824 * s);
-        Raylib.DrawRectangleRounded(body, 0.45f, 32, U.Col(58, 150, 70));
-        Raylib.DrawRing(new Vector2(512 * s, 690 * s), 190 * s, 200 * s, 0, 360, 96, U.Col(235, 245, 235, 140));
+        Raylib.DrawRectangleGradientV(0, 0, n, n, U.Col(80, 178, 88), U.Col(52, 140, 64));
+        Raylib.DrawRing(new Vector2(512 * s, 760 * s), 250 * s, 264 * s, 0, 360, 96, U.Col(235, 245, 235, 130));
 
         Raylib.BeginMode3D(cam);
         Raylib.BeginShaderMode(Draw.Lit);
@@ -56,6 +56,7 @@ static class IconRenderer
         var img = Raylib.LoadImageFromTexture(rt.Texture);
         Raylib.ImageFlipVertical(ref img);
         Raylib.ImageResize(ref img, Size, Size);
+        Raylib.ImageFormat(ref img, PixelFormat.UncompressedR8G8B8);   // no alpha channel at all
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         Raylib.ExportImage(img, path);
         Raylib.UnloadImage(img);
