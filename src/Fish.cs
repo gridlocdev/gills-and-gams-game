@@ -31,9 +31,15 @@ public class Fish
     public const float KickTime = 0.26f;
     public const float SlapTime = 0.35f;
 
-    public Fish(int id) { Id = id; }
+    public readonly int Team;   // 0 = red (attacks +x), 1 = blue (attacks -x)
 
-    public float AttackDir => Id == 0 ? 1 : -1;
+    public Fish(int id, int team)
+    {
+        Id = id;
+        Team = team;
+    }
+
+    public float AttackDir => Team == 0 ? 1 : -1;
     public float Sc => S.Scale;
     public float LegLen => 1.4f * S.LegLength * Sc;
     public float HipY => LegLen + 0.05f * Sc;
@@ -89,10 +95,9 @@ public class Fish
             if (Grounded) { Vel.Y = S.JumpVel * 0.8f; Grounded = false; Yaw += 0.8f; }
         }
 
-        var other = g.Fish[1 - Id];
         Vector2 wish = new(inp.Move.X, -inp.Move.Y);   // screen up = -z
         float speed = S.MoveSpeed;
-        if (other.S.Stinky && Vector3.Distance(Pos, other.Pos) < 3.5f) speed *= 0.85f;
+        if (g.Opponents(this).Any(o => o.S.Stinky && Vector3.Distance(Pos, o.Pos) < 3.5f)) speed *= 0.85f;
         if (S.HomeWaters && Pos.X * AttackDir < 0) speed *= 1.25f;
         if (Charging) speed *= 0.72f;
 
@@ -390,8 +395,11 @@ public class Fish
             return;
         }
 
-        var o = g.Fish[1 - Id];
-        if (o.StunTimer <= 0 && o.StunImmune <= 0 && Vector3.Distance(o.Pos + up * 0.6f * o.Sc, contact) < 1.3f * Sc + o.Radius * 0.5f)
+        var o = g.Opponents(this)
+            .Where(x => x.StunTimer <= 0 && x.StunImmune <= 0 && Vector3.Distance(x.Pos + up * 0.6f * x.Sc, contact) < 1.3f * Sc + x.Radius * 0.5f)
+            .OrderBy(x => Vector3.Distance(x.Pos, contact))
+            .FirstOrDefault();
+        if (o != null)
         {
             o.Stun(0.5f + 0.3f * charge, f * (6 + 5 * charge) / o.S.Mass + up * 4, g);
             g.Popup(o.BodyCenter + up * 0.6f, "SHINNED!", U.Col(255, 90, 90));
@@ -429,9 +437,9 @@ public class Fish
             hitSomething = true;
         }
 
-        var o = g.Fish[1 - Id];
-        if (o.StunTimer <= 0 && o.StunImmune <= 0 && Vector3.Distance(o.BodyCenter, c) < rad + o.Radius * 0.6f)
+        foreach (var o in g.Opponents(this))
         {
+            if (o.StunTimer > 0 || o.StunImmune > 0 || Vector3.Distance(o.BodyCenter, c) >= rad + o.Radius * 0.6f) continue;
             var dir = U.SafeNormalize(U.Flat(o.Pos - Pos), Facing);
             o.Stun(S.SlapStun / MathF.Sqrt(o.S.Mass), (dir * 11 + up * 6) / o.S.Mass, g);
             Audio.Play(Sfx.Slap, 0.7f, 1f);

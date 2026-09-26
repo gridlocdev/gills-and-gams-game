@@ -36,7 +36,9 @@ static class Program
             [90] = "shot:title", [100] = "howto", [130] = "shot:howto", [140] = "play", [175] = "shot:kickoff", [420] = "shot:play1", [600] = "pause", [610] = "shot:pause", [620] = "pause",
             [700] = "shot:play2", [900] = "shot:play3", [910] = "goal", [960] = "shot:goal", [1300] = "draft",
             [1400] = "shot:draft", [1410] = "victory", [1600] = "shot:victory",
-            [1620] = "training", [1900] = "shot:training", [1910] = "trainmenu", [1925] = "shot:trainmenu", [1930] = "quit",
+            [1620] = "training", [1900] = "shot:training", [1910] = "trainmenu", [1925] = "shot:trainmenu",
+            [1930] = "play2v2", [2150] = "shot:2v2-kickoff", [2400] = "shot:2v2", [2410] = "draft", [2500] = "shot:2v2-draft",
+            [2510] = "title", [2520] = "controllers", [2600] = "shot:controllers", [2610] = "quit",
         };
         int frame = 0;
 

@@ -227,9 +227,17 @@ class HumanInput
         Jump = [.. a.Jump, .. b.Jump], Kick = [.. a.Kick, .. b.Kick], Dash = [.. a.Dash, .. b.Dash], Slap = [.. a.Slap, .. b.Slap],
     };
 
-    public Device Device => UsingPad && LastPad >= 0 && Pads.Available(LastPad)
-        ? Device.Gamepad(Prompts.DetectFamily(LastPad))
-        : Device.Keyboard(keySet);
+    public bool HasKeyboard => keys.All.Any();
+
+    // Prompts follow the last device touched; a controller-only player always gets controller prompts.
+    public Device Device
+    {
+        get
+        {
+            int pad = LastPad >= 0 && Pads.Available(LastPad) ? LastPad : AssignedPads.FirstOrDefault(p => Pads.Available(p), -1);
+            return pad >= 0 && (UsingPad || !HasKeyboard) ? Device.Gamepad(Prompts.DetectFamily(pad)) : Device.Keyboard(keySet);
+        }
+    }
 
     public void Rumble(float strength, float seconds)
     {

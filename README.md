@@ -12,8 +12,9 @@ The pitch is small on purpose, so matches are about positioning, movement tech a
 - **Movement tech.** Wavedashes, belly-flop dives, belly slides, Flop Hops, wall kicks, double jumps and overhead Scissor Shins volleys that chain together.
 - **Physical combat.** Kick your opponent's shins, flop-tackle them, or spin into a tail slap.
 - **Mutations between goals.** Both fish pick one of 19 upgrades after every goal, like *Thunder Thighs*, *Banana Fins* (curving shots), *Unwashed Socks* or *Seaweed Curtain*. The fish that got scored on gets an extra option.
-- **1 player vs. ROBO-TROUT** (a CPU opponent) or **2-player couch** on one keyboard and/or controllers.
+- **1 player vs. ROBO-TROUT** (a CPU opponent), **2-player couch**, or **2v2 School Rumble** for 1-4 players on a slightly bigger pitch, where any player slot without a controller is filled by a CPU.
 - **Training Room.** Practise with a live input display, input history with millisecond timings, a 13-move tech checklist, wavedash timing feedback and a practice dummy.
+- **Controllers screen**, console style: see which device controls which player, move them between players, and watch live readouts of every button being pressed or held.
 - **Controller support** for Xbox, PlayStation and Switch-style pads, with matching button prompts ([Kenney](https://kenney.nl) icons) and hot-plugging. Rumble goes through raylib and isn't supported on macOS yet.
 - **Barry Barracuda**, a commentator with 31 years' experience and zero payslips.
 - **No asset files for art or sound.** Everything is drawn from raylib primitives and every sound effect is synthesised at startup.
@@ -60,7 +61,7 @@ just uninstall      # moves it to the Trash again
 
 ## How to play
 
-First to **5 goals** wins. After each goal, both players pick a mutation, then play resumes from kickoff.
+First to **5 goals** wins. After each goal, every fish picks a mutation, then play resumes from kickoff.
 
 ### Controls
 
@@ -73,7 +74,11 @@ First to **5 goals** wins. After each goal, both players pick a mutation, then p
 | Tail Slap | `C` or `Q` | `J` | Y / Triangle, or LB / L1 |
 | Pause | `Esc` or `P` | | Start / Options |
 
-In 1-player mode you can use either keyboard layout. In 2-player mode with two controllers, each player gets one. With a single controller, it goes to Player 2 and Player 1 uses the keyboard.
+**With no controllers connected**, the keyboard works like this: WASD (and in VS ROBO-TROUT and the Training Room, the arrow keys too) controls P1.
+
+**With any controller connected**, only controllers play by default: the first controller is P1, the next is P2, and so on. To play on the keyboard alongside controllers, choose **CONTROLLERS** on the title screen and push left/right on the keyboard (`A`/`D` for WASD, `←`/`→` for the arrows) to give it to a player. Push left/right on a controller to move it between players the same way. Your choices stick until you reset them (`R`, or hold Select).
+- **Couch 1v1:** a player with nothing assigned falls back to their keyboard layout (WASD for P1, arrows for P2).
+- **2v2:** P1 + P2 are red, P3 + P4 are blue, and any player with nothing assigned is played by the CPU.
 
 Holding kick draws an aim arrow on the ground. Tap it for a quick, low pass, or hold until the arrow glows for a lofted, full-power shot.
 
@@ -156,14 +161,15 @@ Contributions are welcome, especially new mutations, better CPU tactics, comment
 
 | Path | Contents |
 |---|---|
-| `src/Game.cs` | Match flow, states, camera, fixed-step simulation |
+| `src/Game.cs` | Match flow, modes and teams, camera, fixed-step simulation |
 | `src/Fish.cs` | Fish physics, movement tech, kicking, and rendering (including the legs and hairs) |
 | `src/Ball.cs`, `src/Arena.cs` | Ball physics, pitch, goals, crowd and Training Room drawing |
 | `src/Upgrades.cs` | Stats and the mutation list (a good first place to contribute) |
 | `src/Commentary.cs` | Barry Barracuda's lines |
-| `src/Ai.cs` | ROBO-TROUT, the CPU opponent |
+| `src/Ai.cs` | ROBO-TROUT, the CPU players (with chaser/support roles in 2v2) |
 | `src/Training.cs` | Training Room logic and HUD |
 | `src/Input.cs`, `src/MacGameController.cs`, `src/Prompts.cs` | Keyboard/controller input, the macOS GameController backend, button prompt icons |
+| `src/Roster.cs`, `src/ControllersScreen.cs` | Which device belongs to which player, and the Controllers screen |
 | `src/Hud.cs`, `src/Fx.cs`, `src/Audio.cs`, `src/Draw.cs` | UI, particles and popups, synthesised sound, drawing helpers and the lighting shader |
 | `src/ControllerCheck.cs`, `src/MacPermissions.cs`, `src/IconRenderer.cs` | Controller diagnostics, macOS permission checks, app icon renderer |
 | `scripts/package-mac.sh` | macOS `.app` packaging |

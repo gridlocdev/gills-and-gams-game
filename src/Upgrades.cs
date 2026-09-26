@@ -70,7 +70,7 @@ static class Upgrades
         new() { Name = "Unwashed Socks", Desc = "Opponents near you move 15% slower", Flavor = "The smell has a hitbox.",
             Color = U.Col(150, 190, 60), Unique = true, Apply = f => f.S.Stinky = true },
         new() { Name = "Seaweed Curtain", Desc = "Your goal shrinks 12%", Flavor = "Totally regulation. Don't check.",
-            Color = U.Col(60, 160, 90), Apply = f => Arena.GoalHalfW[f.Id] *= 0.88f },
+            Color = U.Col(60, 160, 90), Apply = f => Arena.GoalHalfW[f.Team] *= 0.88f },
         new() { Name = "Cannonball Belly", Desc = "Dives & slides hit the ball and fish 40% harder", Flavor = "Maximum splash damage.",
             Color = U.Col(90, 120, 230), Apply = f => f.S.DiveHitMult *= 1.4f },
         new() { Name = "Stilts (Organic)", Desc = "Legs 18% longer: taller, bigger strides", Flavor = "Now 60% leg by volume.",

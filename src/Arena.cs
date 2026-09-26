@@ -6,11 +6,12 @@ namespace FishLegs;
 // "Low Tide Stadium": a deliberately cramped pitch so positioning beats chasing.
 static class Arena
 {
-    public const float HalfL = 15f;     // goal line at x = +/-HalfL
-    public const float HalfW = 9f;      // side walls at z = +/-HalfW
+    public static float HalfL { get; private set; } = 15f;   // goal line at x = +/-HalfL
+    public static float HalfW { get; private set; } = 9f;    // side walls at z = +/-HalfW
     public const float WallH = 4.5f;    // visual glass height (ball collision extends to the ceiling)
     public const float Ceiling = 13f;
-    public const float BaseGoalHalfW = 3.2f;
+    public static float BaseGoalHalfW { get; private set; } = 3.2f;
+    public static bool Big { get; private set; }
     public const float GoalH = 3.0f;
     public const float GoalDepth = 2.2f;
     public const float PostR = 0.13f;
@@ -72,6 +73,18 @@ static class Arena
                             Col = U.Pick(palette), Phase = U.Rand(0, 10), Size = U.Rand(0.38f, 0.5f),
                         });
             }
+    }
+
+    // 2v2 gets a slightly bigger pitch (about 20% longer and wider) with a wider goal mouth.
+    public static void SetSize(bool big)
+    {
+        if (big == Big && crowd.Count > 0) return;
+        Big = big;
+        HalfL = big ? 18f : 15f;
+        HalfW = big ? 11f : 9f;
+        BaseGoalHalfW = big ? 3.7f : 3.2f;
+        ResetGoals();
+        Init();
     }
 
     public static void Hype(float amount) => hype = MathF.Min(1, hype + amount);

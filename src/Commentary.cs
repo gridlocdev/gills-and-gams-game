@@ -16,6 +16,20 @@ static class Commentary
             "Somebody in the crowd has brought a tartar sauce sign. Tasteless.",
             "Hydration break over. Well. 'Hydration.' They just lay in a bucket.");
 
+    public static string KickoffTeams(string a, string b, int round) => round == 0
+        ? P($"It's {a} versus {b}! Two fish a side, eight hairy legs, zero tactical awareness.",
+            "Welcome to a 2v2 SCHOOL RUMBLE, the only sport where 'school' refers to the players.",
+            $"{a} and {b} have been told to 'use the whole pitch'. They've been told a lot of things.",
+            "Four fish, one ball. The physiotherapists are already warming up.")
+        : P($"{a} and {b} return from the locker room with fresh mutations and unresolved grudges.",
+            "Teamwork! Passing! Communication! None of which a fish is capable of. Let's go!",
+            "The coaches have drawn up a new plan. It is a picture of a fish. Very inspiring.");
+
+    public static string TeamWin(string w, string l) =>
+        P($"{w} WIN IT! {l} will be served in a basket with chips.",
+          $"It's over! {w} are champions of the tide! {l} are already being battered. Literally.",
+          $"{w} lift the Golden Sneaker! There are four of them. They'll have to share. They will not share.");
+
     public static string Goal(Fish scorer, Fish victim, bool ownGoal, string tech) => ownGoal
         ? P($"OWN GOAL! {victim.Name} has scored for the other fish. Humiliating. Hilarious.",
             $"{victim.Name} has put it in their own net. It IS a fishing net, to be fair. Instincts.",

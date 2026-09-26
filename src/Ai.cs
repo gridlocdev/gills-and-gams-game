@@ -10,6 +10,7 @@ class AiInput
     float thinkTimer, jitterTimer;
     Vector2 jitter;
     bool wantWavedash;
+    bool chaser = true;
     public float Skill = 0.75f;   // 0..1
 
     public AiInput(Fish me) { this.me = me; }
@@ -18,7 +19,8 @@ class AiInput
     {
         var inp = new PlayerInput();
         var ball = g.Ball;
-        var opp = g.Fish[1 - me.Id];
+        // Mark whichever opponent is closest to the ball.
+        var opp = g.Opponents(me).OrderBy(o => Vector3.Distance(o.Pos, ball.Pos)).First();
         float a = me.AttackDir;
         var oppGoal = new Vector2(a * Arena.HalfL, 0);
         var ownGoal = new Vector2(-a * Arena.HalfL, 0);
@@ -57,6 +59,29 @@ class AiInput
         {
             jitterTimer = U.Rand(0.2f, 0.6f);
             jitter = new Vector2(U.Rand(-1, 1), U.Rand(-1, 1)) * (1 - Skill) * 1.5f;
+        }
+        // 2v2: the teammate nearer the ball chases it (with a little hysteresis); the other supports.
+        var mates = g.Teammates(me).ToList();
+        if (mates.Count > 0)
+        {
+            float mine = myDist - (chaser ? 1.5f : 0);
+            chaser = mates.All(m => mine <= Vector2.Distance(U.XZ(m.Pos), bp) || !m.CanAct);
+            if (!chaser)
+            {
+                if (ballInMyHalf)
+                {
+                    // Sit between the ball and our goal, ready to clear.
+                    var toBall = bp - ownGoal;
+                    target = ownGoal + Vector2.Normalize(toBall) * MathF.Min(5.5f, toBall.Length() * 0.45f);
+                }
+                else
+                {
+                    // Trail the play on the opposite flank, ready for a rebound or a pass.
+                    float flank = bp.Y > 0 ? -1 : 1;
+                    target = bp - toGoal * 5.5f + new Vector2(0, flank * 3.5f);
+                }
+                target = Vector2.Clamp(target, new Vector2(-Arena.HalfL + 1.5f, -Arena.HalfW + 1.5f), new Vector2(Arena.HalfL - 1.5f, Arena.HalfW - 1.5f));
+            }
         }
         target += jitter;
 
