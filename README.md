@@ -36,7 +36,8 @@ The pitch is small on purpose, so matches are about positioning, movement tech a
 |---|---|
 | macOS, Apple Silicon | Supported and tested. Can be packaged as a `.app`. |
 | macOS, Intel | Builds as part of the universal `.app`, not yet tested on Intel hardware. |
-| Windows x64, Linux x64 | Should run with `dotnet run` (raylib ships native libraries for both), but untested. No packaged build yet. |
+| Linux x64 | Packaged as a self-contained tarball, but untested. |
+| Windows x64 | Should run with `dotnet run` (raylib ships a native library for it), but untested. No packaged build yet. |
 
 The packaged app targets macOS 12 or later.
 
@@ -53,11 +54,11 @@ dotnet run          # or: just run
 ### Install as a macOS app
 
 ```sh
-just install        # builds "Gills & Gams.app" and moves it into ~/Applications
-just uninstall      # moves it to the Trash again
+just install-macos    # builds "Gills & Gams.app" and moves it into ~/Applications
+just uninstall-macos  # moves it to the Trash again
 ```
 
-`just app` builds the app into `dist/` without installing it, and `just app-universal` builds one that runs on both Apple Silicon and Intel Macs. The bundle is self-contained, so the Mac running it doesn't need .NET installed.
+`just build-macos` builds the app into `dist/` without installing it, and `just build-macos-universal` builds one that runs on both Apple Silicon and Intel Macs. The bundle is self-contained, so the Mac running it doesn't need .NET installed.
 
 ## How to play
 
@@ -153,9 +154,10 @@ Contributions are welcome, especially new mutations, better CPU tactics, comment
 | `just build` | Debug build |
 | `just controllers` | Live controller diagnostics |
 | `just icon` | Re-render the app icon from the in-game fish model |
-| `just app` / `just app-universal` | Package `Gills & Gams.app` into `dist/` |
-| `just app-run` | Package and launch the app |
-| `just install` / `just uninstall` | Install to / remove from `~/Applications` |
+| `just build-macos` / `just build-macos-universal` | Package `Gills & Gams.app` into `dist/` |
+| `just build-linux` | Package a Linux x64 tarball into `dist/` |
+| `just run-macos` | Package and launch the app |
+| `just install-macos` / `just uninstall-macos` | Install to / remove from `~/Applications` |
 
 ### Project layout
 

@@ -20,19 +20,23 @@ icon:
     dotnet run -- --render-icon assets/icon/AppIcon.png
 
 # Package "Gills & Gams.app" for this Mac's architecture into dist/
-app:
+build-macos:
     scripts/package-mac.sh
 
 # Package a universal (Apple Silicon + Intel) .app into dist/
-app-universal:
+build-macos-universal:
     scripts/package-mac.sh --arch universal
 
+# Package a self-contained Linux x64 tarball into dist/ (works from macOS too)
+build-linux:
+    scripts/package-linux.sh
+
 # Package and launch the .app
-app-run: app
+run-macos: build-macos
     open "dist/Gills & Gams.app"
 
 # Build the .app and move it into ~/Applications (an older copy goes to the Trash)
-install: app
+install-macos: build-macos
     #!/usr/bin/env bash
     set -euo pipefail
     src="dist/Gills & Gams.app"
@@ -43,7 +47,7 @@ install: app
     echo "Installed to $dest"
 
 # Move the installed app from ~/Applications to the Trash and forget its Input Monitoring permission
-uninstall:
+uninstall-macos:
     #!/usr/bin/env bash
     set -euo pipefail
     dest="$HOME/Applications/Gills & Gams.app"
