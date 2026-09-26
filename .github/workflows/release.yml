@@ -22,12 +22,16 @@ jobs:
             os: ubuntu-latest
             package: scripts/package-linux.sh
             artifact: linux-x64
+          - name: Windows x64
+            os: ubuntu-latest
+            package: scripts/package-windows.sh
+            artifact: win-x64
     env:
       APP_VERSION: ${{ github.ref_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
 
@@ -41,7 +45,7 @@ jobs:
         if: runner.os == 'macOS'
         run: ditto -c -k --keepParent "dist/Gills & Gams.app" "dist/gills-and-gams-$APP_VERSION-macos-universal.zip"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: |
@@ -53,7 +57,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
@@ -67,8 +71,9 @@ jobs:
 
           - **macOS** (Apple Silicon and Intel, macOS 12+): `gills-and-gams-*-macos-universal.zip`. The app is not notarized, so on first launch right-click it and choose **Open**, or run `xattr -dr com.apple.quarantine "Gills & Gams.app"`.
           - **Linux x64**: `gills-and-gams-*-linux-x64.tar.gz`. Extract it and run `./gills-and-gams/FishLegsSoccer`.
+          - **Windows x64**: `gills-and-gams-*-win-x64.zip`. Extract it and run `gills-and-gams\FishLegsSoccer.exe`. It is not code-signed, so SmartScreen may warn you: choose **More info** then **Run anyway**.
 
-          Both builds are self-contained, so .NET does not need to be installed.
+          All builds are self-contained, so .NET does not need to be installed.
           NOTES
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" \
