@@ -16,10 +16,12 @@ jobs:
         include:
           - name: macOS universal
             os: macos-latest
-            recipe: build-macos-universal
+            package: scripts/package-mac.sh --arch universal
+            artifact: macos-universal
           - name: Linux x64
             os: ubuntu-latest
-            recipe: build-linux
+            package: scripts/package-linux.sh
+            artifact: linux-x64
     env:
       APP_VERSION: ${{ github.ref_name }}
     steps:
@@ -29,13 +31,11 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - uses: taiki-e/install-action@just
-
       - name: Strip the leading "v" from the tag
         run: echo "APP_VERSION=${APP_VERSION#v}" >> "$GITHUB_ENV"
 
       - name: Package
-        run: just ${{ matrix.recipe }}
+        run: ${{ matrix.package }}
 
       - name: Zip the .app
         if: runner.os == 'macOS'
@@ -43,7 +43,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.recipe }}
+          name: ${{ matrix.artifact }}
           path: |
             dist/*.zip
             dist/*.tar.gz
