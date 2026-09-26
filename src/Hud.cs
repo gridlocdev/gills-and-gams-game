@@ -46,7 +46,7 @@ static class Hud
         U.TextCentered("Competitive Fish-Leg Football", W / 2, 180, 30, Color.White);
         U.TextCentered("\"It's like football, but worse, and wetter.\"  - Barry Barracuda", W / 2, 218, 20, U.Col(200, 230, 255));
 
-        int y0 = H / 2 + 10;
+        int y0 = H - 96 - items.Length * 58;
         Box(W / 2 - 260, y0 - 24, 520, items.Length * 58 + 30, Panel);
         for (int i = 0; i < items.Length; i++)
         {

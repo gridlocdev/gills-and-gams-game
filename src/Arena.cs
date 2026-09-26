@@ -213,6 +213,86 @@ static class Arena
         }
     }
 
+    // ---------------------------------------------------------------- training room
+
+    const float RoomH = 6f;
+    static float RoomEnd => HalfL + GoalDepth + 1.2f;
+    static readonly Color RoomFloor = U.Col(34, 56, 92);
+    static readonly Color RoomWall = U.Col(196, 215, 232);
+    static readonly Color GridMinor = U.Col(95, 135, 185);
+    static readonly Color GridMajor = U.Col(175, 210, 245);
+    static readonly Color WallGrid = U.Col(170, 192, 214);
+
+    // A closed grid room with the same footprint as the pitch: no crowd, no sea, no distractions.
+    public static void DrawTrainingRoom()
+    {
+        float end = RoomEnd;
+        Draw.Box(new Vector3(0, -0.03f, 0), new Vector3(end * 2, 0.04f, HalfW * 2), 0, RoomFloor);
+
+        // Floor grid: 1 m minor lines, 5 m major lines (centred on the halfway line).
+        for (int i = -(int)end; i <= (int)end; i++)
+        {
+            bool major = i % 5 == 0;
+            Draw.Box(new Vector3(i, 0.002f, 0), new Vector3(major ? 0.07f : 0.035f, 0.01f, HalfW * 2), 0, major ? GridMajor : GridMinor);
+        }
+        for (int j = -(int)HalfW; j <= (int)HalfW; j++)
+        {
+            bool major = j % 5 == 0;
+            Draw.Box(new Vector3(0, 0.003f, j), new Vector3(end * 2, 0.01f, major ? 0.07f : 0.035f), 0, major ? GridMajor : GridMinor);
+        }
+        // Goal lines, so you can tell where "in" starts.
+        for (int s = -1; s <= 1; s += 2)
+            Draw.Box(new Vector3(s * HalfL, 0.006f, 0), new Vector3(0.1f, 0.01f, GoalHalfW[s < 0 ? 0 : 1] * 2), 0, U.Col(255, 215, 80));
+
+        // Far wall and the walls behind the goals, with a faint grid.
+        WallZ(-HalfW - 0.15f, -end, end, 0, RoomH);
+        for (int s = -1; s <= 1; s += 2)
+        {
+            float x = s * (HalfL + 0.15f);
+            float gw = GoalHalfW[s < 0 ? 0 : 1];
+            WallX(x, -HalfW, -gw, 0, RoomH);
+            WallX(x, gw, HalfW, 0, RoomH);
+            WallX(x, -gw, gw, GoalH, RoomH);
+            WallX(s * end, -HalfW, HalfW, 0, RoomH);
+        }
+
+        for (int side = 0; side < 2; side++) DrawGoal(side);
+    }
+
+    static void WallZ(float z, float x0, float x1, float y0, float y1)
+    {
+        float cx = (x0 + x1) / 2, w = x1 - x0, h = y1 - y0;
+        Draw.Box(new Vector3(cx, y0 + h / 2, z), new Vector3(w, h, 0.3f), 0, RoomWall);
+        float face = z + (z < 0 ? 0.16f : -0.16f);
+        for (float x = MathF.Ceiling(x0); x <= x1; x += 1)
+            Draw.Box(new Vector3(x, y0 + h / 2, face), new Vector3(0.03f, h, 0.01f), 0, WallGrid);
+        for (float y = MathF.Ceiling(y0 + 0.01f); y < y1; y += 1)
+            Draw.Box(new Vector3(cx, y, face), new Vector3(w, 0.03f, 0.01f), 0, WallGrid);
+    }
+
+    static void WallX(float x, float z0, float z1, float y0, float y1)
+    {
+        float cz = (z0 + z1) / 2, d = z1 - z0, h = y1 - y0;
+        if (d <= 0.01f) return;
+        Draw.Box(new Vector3(x, y0 + h / 2, cz), new Vector3(0.3f, h, d), 0, RoomWall);
+        float face = x + (x < 0 ? 0.16f : -0.16f);
+        for (float z = MathF.Ceiling(z0); z <= z1; z += 1)
+            Draw.Box(new Vector3(face, y0 + h / 2, z), new Vector3(0.01f, h, 0.03f), 0, WallGrid);
+        for (float y = MathF.Ceiling(y0 + 0.01f); y < y1; y += 1)
+            Draw.Box(new Vector3(face, y, cz), new Vector3(0.01f, 0.03f, d), 0, WallGrid);
+    }
+
+    // The near wall is see-through so the camera can look into the room.
+    public static void DrawTrainingGlass()
+    {
+        float end = RoomEnd;
+        Rlgl.DisableDepthMask();
+        Draw.Box(new Vector3(0, RoomH / 2, HalfW + 0.15f), new Vector3(end * 2, RoomH, 0.06f), 0, new Color(200, 225, 250, 28));
+        Draw.Box(new Vector3(0, RoomH, HalfW + 0.15f), new Vector3(end * 2, 0.08f, 0.1f), 0, new Color(220, 235, 250, 140));
+        Draw.Box(new Vector3(0, 0.02f, HalfW + 0.15f), new Vector3(end * 2, 0.08f, 0.1f), 0, new Color(220, 235, 250, 140));
+        Rlgl.EnableDepthMask();
+    }
+
     // Translucent glass drawn last so it doesn't punch holes in things behind it.
     public static void DrawGlass()
     {

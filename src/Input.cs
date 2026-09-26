@@ -8,6 +8,7 @@ public struct PlayerInput
     public Vector2 Move;        // x = screen right, y = screen up
     public bool JumpPressed, DashPressed, SlapPressed;
     public bool KickDown, KickPressed, KickReleased;
+    public bool JumpDown, DashDown, SlapDown;   // held state, for the training input display
     public bool MenuUp, MenuDown, MenuLeft, MenuRight;
 
     public bool Confirm => KickPressed || JumpPressed;
@@ -248,6 +249,9 @@ class HumanInput
         if (Down(keys.Down)) m.Y -= 1;
 
         bool kick = Down(keys.Kick);
+        inp.JumpDown = Down(keys.Jump);
+        inp.DashDown = Down(keys.Dash);
+        inp.SlapDown = Down(keys.Slap);
         inp.JumpPressed = Pressed(keys.Jump);
         inp.DashPressed = Pressed(keys.Dash);
         inp.SlapPressed = Pressed(keys.Slap);
@@ -259,6 +263,9 @@ class HumanInput
             if (Pads.Active(g)) { UsingPad = true; LastPad = g; }
             m += Pads.Stick(g) + Pads.Dpad(g);
             kick |= Pads.Down(g, GamepadButton.RightFaceLeft) || Pads.RightTrigger(g);
+            inp.JumpDown |= Pads.Down(g, GamepadButton.RightFaceDown);
+            inp.DashDown |= Pads.Down(g, GamepadButton.RightFaceRight) || Pads.Down(g, GamepadButton.RightTrigger1);
+            inp.SlapDown |= Pads.Down(g, GamepadButton.RightFaceUp) || Pads.Down(g, GamepadButton.LeftTrigger1);
             inp.JumpPressed |= Pads.Pressed(g, GamepadButton.RightFaceDown);
             inp.DashPressed |= Pads.Pressed(g, GamepadButton.RightFaceRight) || Pads.Pressed(g, GamepadButton.RightTrigger1);
             inp.SlapPressed |= Pads.Pressed(g, GamepadButton.RightFaceUp) || Pads.Pressed(g, GamepadButton.LeftTrigger1);

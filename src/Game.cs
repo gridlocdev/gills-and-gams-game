@@ -5,7 +5,7 @@ namespace FishLegs;
 
 public class Game
 {
-    enum State { Title, HowTo, Kickoff, Play, Goal, Draft, Victory }
+    enum State { Title, HowTo, Kickoff, Play, Goal, Draft, Victory, Training }
 
     public const int WinScore = 5;
     const float Step = 1f / 120f;
@@ -22,6 +22,8 @@ public class Game
 
     readonly HumanInput[] humans = new HumanInput[2];
     readonly MenuInput menu = new();
+    readonly Training training = new();
+    PlayerInput trainingHeld;
     List<int> connectedPads = new();
     string toast = "";
     float toastAge = 99;
@@ -166,9 +168,15 @@ public class Game
     {
         lastTech[f.Id] = tech;
         lastTechAt[f.Id] = gameTime;
+        if (state == State.Training && f.Id == 0) training.OnTech(tech);
         if (state == State.Play)
             techCount[f.Id][tech] = techCount[f.Id].GetValueOrDefault(tech) + 1;
         Arena.Hype(0.15f);
+    }
+
+    public void DashTiming(Fish f, float sinceLand, float landImpact, bool wave)
+    {
+        if (state == State.Training && f.Id == 0) training.OnDashTiming(sinceLand, landImpact, wave);
     }
 
     // ------------------------------------------------------------------ flow
@@ -219,8 +227,83 @@ public class Game
         Comment(Commentary.Kickoff(Fish[0], Fish[1], round));
     }
 
+    void StartTraining()
+    {
+        vsCpu = true;
+        ConfigureInputs();
+        ResetMatch();
+        ResetPositions();
+        Fx.Clear();
+        paused = false;
+        state = State.Training;
+        stateTime = 0;
+        training.MenuSel = 0;
+        training.BallResetAt = -1;
+        ApplyDummyMode();
+    }
+
+    void ApplyDummyMode()
+    {
+        // "Off" parks the dummy far below the floor, out of every collision check.
+        Fish[1].ResetForKickoff(training.Dummy == DummyMode.Off ? new Vector3(0, -50, 0) : Training.DummyHome);
+    }
+
+    void ResetTrainingBall()
+    {
+        var p = Fish[0];
+        var at = p.Pos + p.Facing * 2.4f + Vector3.UnitY * 1.2f;
+        at.X = U.Clamp(at.X, -Arena.HalfL + 1, Arena.HalfL - 1);
+        at.Z = U.Clamp(at.Z, -Arena.HalfW + 1, Arena.HalfW - 1);
+        Ball.Pos = at;
+        Ball.Vel = Vector3.Zero;
+        Ball.Spin = Vector3.Zero;
+        training.BallResetAt = -1;
+        Fx.Puff(at, 8);
+        Audio.Play(Sfx.Blip, 1.3f);
+    }
+
+    void UpdateTrainingMenu()
+    {
+        if (!paused)
+        {
+            if (menu.Pause) { paused = true; training.MenuSel = 0; Audio.Play(Sfx.Blip); }
+            else if (Raylib.IsKeyPressed(KeyboardKey.R) || Pads.Connected().Any(p => Pads.Pressed(p, GamepadButton.MiddleLeft)))
+                ResetTrainingBall();
+            return;
+        }
+        int n = Training.MenuItems.Length;
+        if (menu.Vertical != 0) { training.MenuSel = (training.MenuSel + menu.Vertical + n) % n; Audio.Play(Sfx.Blip); }
+        if (menu.Back || menu.Pause) { paused = false; Audio.Play(Sfx.Blip); return; }
+        if (!menu.Confirm) return;
+        Audio.Play(Sfx.Select);
+        switch (training.MenuSel)
+        {
+            case 0: paused = false; break;
+            case 1:
+                training.Dummy = (DummyMode)(((int)training.Dummy + 1) % 3);
+                ApplyDummyMode();
+                break;
+            case 2: training.NoCooldowns = !training.NoCooldowns; break;
+            case 3: training.ShowInputs = !training.ShowInputs; break;
+            case 4: ResetTrainingBall(); paused = false; break;
+            case 5: training.ResetChecklist(); break;
+            case 6: paused = false; GoToTitle(); break;
+        }
+    }
+
     void OnGoal(int goalSide)
     {
+        if (state == State.Training)
+        {
+            training.OnTech("goal");
+            Popup(new Vector3(Arena.GoalX(goalSide), 3.5f, 0), "GOAL!", U.Col(255, 215, 80));
+            Fx.Confetti(new Vector3(Arena.GoalX(goalSide), 1.5f, 0), 50);
+            Audio.Play(Sfx.Horn, 1.3f, 0.5f);
+            Rumble(0, 0.5f, 0.3f);
+            training.BallResetAt = gameTime + 1.2f;
+            return;
+        }
+
         int scorer = 1 - goalSide;
         var s = Fish[scorer];
         var v = Fish[goalSide];
@@ -265,6 +348,8 @@ public class Game
             case "victory": score[0] = WinScore; lastScorer = 0; state = State.Goal; stateTime = 3.2f; break;
             case "howto": state = State.HowTo; break;
             case "pause": paused = !paused; break;
+            case "training": StartTraining(); DebugAiP1 = true; break;
+            case "trainmenu": paused = true; break;
         }
     }
 
@@ -312,6 +397,7 @@ public class Game
         stateTime += frameDt;
         commentAge += frameDt;
         toastAge += frameDt;
+        training.Update(frameDt);
         Pads.Update();
         menu.Update();
         WatchPads();
@@ -321,8 +407,15 @@ public class Game
         {
             PlayerInput inp;
             if (state == State.Title || state == State.HowTo) inp = ais[i].Read(this, frameDt);
+            else if (state == State.Training && i == 1)
+                inp = training.Dummy == DummyMode.Cpu ? ais[1].Read(this, frameDt) : default;
             else if ((vsCpu && i == 1) || (DebugAiP1 && i == 0)) inp = ais[i].Read(this, frameDt);
             else inp = humans[i].Read();
+            if (state == State.Training && i == 0)
+            {
+                trainingHeld = inp;
+                if (!paused) training.RecordInput(inp, Fish[0], gameTime);
+            }
             var p = pending[i];
             inp.JumpPressed |= p.JumpPressed;
             inp.DashPressed |= p.DashPressed;
@@ -339,6 +432,7 @@ public class Game
                 if (menu.Confirm || menu.Back) { state = State.Title; Audio.Play(Sfx.Blip); }
                 break;
             case State.Draft: UpdateDraft(frameDt); break;
+            case State.Training: UpdateTrainingMenu(); break;
             case State.Victory:
                 if (stateTime > 1.5f && (menu.Confirm || menu.Back)) { Audio.Play(Sfx.Select); GoToTitle(); }
                 break;
@@ -393,7 +487,7 @@ public class Game
         else timeScale = 1;
 
         // Fixed-step simulation with hitstop.
-        bool simulate = state is State.Title or State.HowTo or State.Kickoff or State.Play or State.Goal or State.Victory or State.Draft;
+        bool simulate = state is State.Title or State.HowTo or State.Kickoff or State.Play or State.Goal or State.Victory or State.Draft or State.Training;
         if (simulate)
         {
             if (hitstop > 0) hitstop -= frameDt;
@@ -418,7 +512,7 @@ public class Game
         UpdateCamera(frameDt);
     }
 
-    static readonly string[] TitleItems = { "VS ROBO-TROUT  (1 player)", "COUCH HOOLIGANS  (2 players)", "HOW TO PLAY", "QUIT" };
+    static readonly string[] TitleItems = { "VS ROBO-TROUT  (1 player)", "COUCH HOOLIGANS  (2 players)", "TRAINING ROOM", "HOW TO PLAY", "QUIT" };
 
     void UpdateTitle()
     {
@@ -435,8 +529,9 @@ public class Game
         {
             case 0: StartMatch(true); break;
             case 1: StartMatch(false); break;
-            case 2: state = State.HowTo; break;
-            case 3: quit = true; break;
+            case 2: StartTraining(); break;
+            case 3: state = State.HowTo; break;
+            case 4: quit = true; break;
         }
     }
 
@@ -472,13 +567,20 @@ public class Game
     {
         gameTime += dt;
         Arena.Update(dt);
-        bool control = state is State.Play or State.Title or State.HowTo;
+        bool control = state is State.Play or State.Title or State.HowTo or State.Training;
+        bool dummyOff = state == State.Training && training.Dummy == DummyMode.Off;
         for (int i = 0; i < 2; i++)
-            Fish[i].Update(dt, control ? pending[i] : default, this);
+            if (!(i == 1 && dummyOff)) Fish[i].Update(dt, control ? pending[i] : default, this);
+        if (state == State.Training)
+        {
+            if (training.NoCooldowns) Fish[0].DashCd = Fish[0].SlapCd = 0;
+            training.UpdateDummy(Fish[1], this, dt);
+            if (training.BallResetAt >= 0 && gameTime >= training.BallResetAt) ResetTrainingBall();
+        }
 
         CollideFishes();
 
-        bool allowGoal = state is State.Play or State.Title or State.HowTo;
+        bool allowGoal = state is State.Play or State.Title or State.HowTo || (state == State.Training && training.BallResetAt < 0);
         int goal = Ball.Update(dt, this, allowGoal);
         foreach (var f in Fish) Ball.CollideFish(f, this, dt);
         if (state == State.Kickoff && Ball.Pos.Y < Ball.R + 0.01f)
@@ -596,16 +698,19 @@ public class Game
         int W = Raylib.GetScreenWidth(), H = Raylib.GetScreenHeight();
         Raylib.BeginDrawing();
         Raylib.ClearBackground(U.Col(150, 205, 245));
-        Raylib.DrawRectangleGradientV(0, 0, W, H, U.Col(80, 150, 230), U.Col(190, 225, 250));
+        bool room = state == State.Training;
+        if (room) Raylib.DrawRectangleGradientV(0, 0, W, H, U.Col(170, 200, 228), U.Col(210, 228, 242));
+        else Raylib.DrawRectangleGradientV(0, 0, W, H, U.Col(80, 150, 230), U.Col(190, 225, 250));
 
         Raylib.BeginMode3D(cam);
         Raylib.BeginShaderMode(Draw.Lit);
         Draw.SetView(cam.Position);
 
         float celebrate = state is State.Goal or State.Victory ? 1 : 0;
-        Arena.DrawWorld(celebrate);
+        if (room) Arena.DrawTrainingRoom(); else Arena.DrawWorld(celebrate);
         Ball.Render();
-        foreach (var f in Fish) f.Render(realTime);
+        foreach (var f in Fish)
+            if (!(room && f.Id == 1 && training.Dummy == DummyMode.Off)) f.Render(realTime);
         Fx.Render3D(realTime);
 
         // Transparent stuff last.
@@ -614,7 +719,7 @@ public class Game
             f.DrawTransparent();
             if (f.Charging) DrawAimArrow(f);
         }
-        Arena.DrawGlass();
+        if (room) Arena.DrawTrainingGlass(); else Arena.DrawGlass();
 
         Raylib.EndShaderMode();
         Raylib.EndMode3D();
@@ -633,6 +738,10 @@ public class Game
                 break;
             case State.Draft:
                 Hud.Draft(W, H, realTime, Fish, draftOptions, draftCursor, draftReady, lastScorer, vsCpu, [PlayerDevice(0), PlayerDevice(1)]);
+                break;
+            case State.Training:
+                training.Render(W, H, realTime, humans[0].Device, trainingHeld, Fish[0], Fish[1], cam);
+                if (paused) training.RenderMenu(W, H, realTime, menu.Device);
                 break;
             case State.Victory:
                 Hud.Victory(W, H, realTime, Fish[lastScorer], Fish[1 - lastScorer], score, techCount, stateTime, menu.Device);

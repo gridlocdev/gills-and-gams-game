@@ -5,7 +5,7 @@ namespace FishLegs;
 
 public enum PadFamily { Xbox, PlayStation, Switch }
 
-public enum Act { Move, Kick, Jump, Dash, Slap, Navigate, Confirm, Back, Pause, Quit }
+public enum Act { Move, Kick, Jump, Dash, Slap, Navigate, Confirm, Back, Pause, Quit, Reset }
 
 // Which glyphs to show for a player: a keyboard layout or a particular brand of gamepad.
 public readonly record struct Device(bool Pad, PadFamily Family, int KeySet)
@@ -78,6 +78,7 @@ static class Prompts
                 Act.Back => [[right]],
                 Act.Pause => [[start]],
                 Act.Quit => [[select]],
+                Act.Reset => [[select]],
                 _ => [],
             };
         }
@@ -103,6 +104,7 @@ static class Prompts
             (_, Act.Back) => [["keyboard_escape"]],
             (_, Act.Pause) => [["keyboard_escape"], ["keyboard_p"]],
             (_, Act.Quit) => [["keyboard_enter"]],
+            (_, Act.Reset) => [["keyboard_r"]],
             _ => [],
         };
     }

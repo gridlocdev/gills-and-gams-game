@@ -248,6 +248,7 @@ public class Fish
         if (AirJumps > 0)
         {
             AirJumps--;
+            g.TechUsed(this, "airjump");
             Vel.Y = S.JumpVel * 0.88f;
             Diving = false;
             FlailTimer = 0.45f;
@@ -271,6 +272,7 @@ public class Fish
             hv = dir * MathF.Max(spd, Vector2.Dot(hv, dir));
             DashTimer = 0.17f;
             DashCd = S.DashCooldown * (wave ? 0.35f : 1f);
+            g.DashTiming(this, SinceLand, LastLandImpact, wave);
             Yaw = MathF.Atan2(dir.Y, dir.X);
             if (wave)
             {
@@ -287,6 +289,7 @@ public class Fish
             // DIVE: a committed, horizontal belly flop. Lands into a slide.
             Diving = true;
             Charging = false;
+            g.TechUsed(this, "dive");
             hv = dir * MathF.Max(S.DashSpeed * 0.95f, Vector2.Dot(hv, dir));
             Vel.Y = MathF.Max(Vel.Y * 0.3f, 0) + 3.5f;
             DashCd = S.DashCooldown;
@@ -309,6 +312,7 @@ public class Fish
         {
             Diving = false;
             SlideTimer = 0.6f * S.SlideMult;
+            g.TechUsed(this, "slide");
             Vel.X *= 1.05f;
             Vel.Z *= 1.05f;
             Audio.PlayVaried(Sfx.Splat, 0.1f);
@@ -379,7 +383,8 @@ public class Fish
                 g.Popup(BodyCenter + up * 0.6f, U.Pick(new[] { "SCISSOR SHINS!", "BICYCLE KICK!", "AIR LEG!" }), U.Col(255, 150, 255));
                 g.TechUsed(this, "airkick");
             }
-            else if (charge >= 0.99f) g.Popup(BodyCenter + up * 0.6f, U.Pick(new[] { "LEG DAY!", "WHAMMY!", "SHIN-SANITY!" }), U.Col(255, 120, 80));
+            if (charge >= 0.99f) g.TechUsed(this, "fullkick");
+            if (!airKick && charge >= 0.99f) g.Popup(BodyCenter + up * 0.6f, U.Pick(new[] { "LEG DAY!", "WHAMMY!", "SHIN-SANITY!" }), U.Col(255, 120, 80));
             eyeJigVel += new Vector2(U.Rand(-5, 5), 5);
             g.Fx.Grass(Pos + f * 0.8f, 5);
             return;
@@ -390,6 +395,7 @@ public class Fish
         {
             o.Stun(0.5f + 0.3f * charge, f * (6 + 5 * charge) / o.S.Mass + up * 4, g);
             g.Popup(o.BodyCenter + up * 0.6f, "SHINNED!", U.Col(255, 90, 90));
+            g.TechUsed(this, "shin");
             g.Comment(Commentary.Shinned(this, o));
             Audio.Play(Sfx.Slap, 0.8f);
             g.Hitstop(0.05f);
@@ -430,6 +436,7 @@ public class Fish
             o.Stun(S.SlapStun / MathF.Sqrt(o.S.Mass), (dir * 11 + up * 6) / o.S.Mass, g);
             Audio.Play(Sfx.Slap, 0.7f, 1f);
             g.Popup(o.BodyCenter + up * 0.8f, "SLAPPED!", U.Col(255, 120, 200));
+            g.TechUsed(this, "slap");
             g.Comment(Commentary.Slapped(this, o));
             g.Shake(0.3f);
             g.Hype(0.3f);
