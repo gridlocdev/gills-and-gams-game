@@ -15,7 +15,6 @@ static class Program
         Audio.Init();
         Draw.Init();
         Prompts.Load();
-        MacPermissions.Request();
         int iconArg = Array.IndexOf(args, "--render-icon");
         if (args.Contains("--controllers") || iconArg >= 0)
         {

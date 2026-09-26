@@ -117,7 +117,7 @@ public class Game
         var removed = connectedPads.Except(now).ToList();
         connectedPads = now;
         AssignPads();
-        if (added.Count > 0 && MacPermissions.Blocked)
+        if (added.Count > 0 && Pads.PermissionProblem)
         {
             toast = $"Controller found, but {MacPermissions.Why}. See HOW TO PLAY for the fix.";
         }
@@ -312,6 +312,7 @@ public class Game
         stateTime += frameDt;
         commentAge += frameDt;
         toastAge += frameDt;
+        Pads.Update();
         menu.Update();
         WatchPads();
 
@@ -618,11 +619,11 @@ public class Game
         {
             case State.Title:
                 Hud.Title(W, H, realTime, TitleItems, titleSel, menu.Device);
-                if (connectedPads.Count > 0 && MacPermissions.Blocked) Hud.PermissionWarning(W, 250);
+                if (Pads.PermissionProblem) Hud.PermissionWarning(W, 250);
                 break;
             case State.HowTo:
                 Hud.HowTo(W, H, menu.Device, connectedPads);
-                if (connectedPads.Count > 0 && MacPermissions.Blocked) Hud.PermissionWarning(W, H - 150);
+                if (Pads.PermissionProblem) Hud.PermissionWarning(W, H - 150);
                 break;
             case State.Draft:
                 Hud.Draft(W, H, realTime, Fish, draftOptions, draftCursor, draftReady, lastScorer, vsCpu, [PlayerDevice(0), PlayerDevice(1)]);

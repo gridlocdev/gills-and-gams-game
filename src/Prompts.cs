@@ -41,7 +41,7 @@ static class Prompts
 
     public static PadFamily DetectFamily(int pad)
     {
-        string name = Pads.Name(pad).ToLowerInvariant();
+        string name = (Pads.Name(pad) + " " + Pads.Category(pad)).ToLowerInvariant();
         if (name.Contains("playstation") || name.Contains("dualsense") || name.Contains("dualshock") ||
             name.Contains("ps3") || name.Contains("ps4") || name.Contains("ps5") || name.Contains("sony"))
             return PadFamily.PlayStation;

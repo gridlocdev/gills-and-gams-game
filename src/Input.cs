@@ -27,66 +27,160 @@ class KeyMap
     public IEnumerable<KeyboardKey> All => Up.Concat(Down).Concat(Left).Concat(Right).Concat(Jump).Concat(Dash).Concat(Kick).Concat(Slap);
 }
 
+public enum PadSource { None, GameController, Raylib }
+
+// One snapshot per frame of every connected controller, from Apple's GameController framework on
+// macOS and raylib otherwise (or for controllers GameController doesn't support).
 static class Pads
 {
     public const int Max = 4;
     const float DeadZone = 0.25f;
+    const int ButtonCount = (int)GamepadButton.RightThumb + 1;
+
+    class Slot
+    {
+        public PadSource Source;
+        public int RaylibIndex = -1;
+        public string Name = "", Category = "";
+        public Vector2 Stick, Dpad;
+        public float LeftTrigger, RightTrigger;
+        public bool[] Down = new bool[ButtonCount], Prev = new bool[ButtonCount];
+    }
+
+    static readonly Slot[] slots = Enumerable.Range(0, Max).Select(_ => new Slot()).ToArray();
+
+    public static void Update()
+    {
+        foreach (var s in slots)
+        {
+            (s.Prev, s.Down) = (s.Down, s.Prev);
+            Array.Clear(s.Down);
+            s.Source = PadSource.None;
+            s.RaylibIndex = -1;
+            s.Stick = s.Dpad = Vector2.Zero;
+            s.LeftTrigger = s.RightTrigger = 0;
+        }
+
+        int n = 0;
+        MacGameController.Poll();
+        foreach (var c in MacGameController.Controllers)
+        {
+            if (n >= Max) break;
+            var s = slots[n++];
+            s.Source = PadSource.GameController;
+            s.Name = c.Name;
+            s.Category = c.Category;
+            s.Stick = c.LeftStick;
+            s.LeftTrigger = c.LeftTrigger;
+            s.RightTrigger = c.RightTrigger;
+            Set(s, GamepadButton.RightFaceDown, c.A);
+            Set(s, GamepadButton.RightFaceRight, c.B);
+            Set(s, GamepadButton.RightFaceLeft, c.X);
+            Set(s, GamepadButton.RightFaceUp, c.Y);
+            Set(s, GamepadButton.LeftTrigger1, c.LeftShoulder);
+            Set(s, GamepadButton.RightTrigger1, c.RightShoulder);
+            Set(s, GamepadButton.LeftTrigger2, c.LeftTrigger > 0.5f);
+            Set(s, GamepadButton.RightTrigger2, c.RightTrigger > 0.5f);
+            Set(s, GamepadButton.MiddleRight, c.Menu);
+            Set(s, GamepadButton.MiddleLeft, c.Options);
+            Set(s, GamepadButton.LeftThumb, c.LeftThumb);
+            Set(s, GamepadButton.RightThumb, c.RightThumb);
+            Set(s, GamepadButton.LeftFaceUp, c.Dpad.Y > 0.5f);
+            Set(s, GamepadButton.LeftFaceDown, c.Dpad.Y < -0.5f);
+            Set(s, GamepadButton.LeftFaceLeft, c.Dpad.X < -0.5f);
+            Set(s, GamepadButton.LeftFaceRight, c.Dpad.X > 0.5f);
+        }
+
+        // raylib pads that GameController isn't already providing (e.g. generic USB pads, non-macOS).
+        for (int r = 0; r < Max && n < Max; r++)
+        {
+            if (!Raylib.IsGamepadAvailable(r)) continue;
+            string name = (Raylib.GetGamepadName_(r) ?? "").Trim();
+            if (MacGameController.Controllers.Any(c => SameDevice(c.Name, name))) continue;
+            var s = slots[n++];
+            s.Source = PadSource.Raylib;
+            s.RaylibIndex = r;
+            s.Name = string.IsNullOrWhiteSpace(name) ? $"Controller {r + 1}" : name;
+            s.Category = "";
+            for (int b = 1; b < ButtonCount; b++) s.Down[b] = Raylib.IsGamepadButtonDown(r, (GamepadButton)b);
+            s.Stick = new Vector2(Raylib.GetGamepadAxisMovement(r, GamepadAxis.LeftX), -Raylib.GetGamepadAxisMovement(r, GamepadAxis.LeftY));
+            // Triggers rest at -1 on most mappings.
+            if (Raylib.GetGamepadAxisCount(r) > 4)
+            {
+                s.LeftTrigger = U.Clamp01((Raylib.GetGamepadAxisMovement(r, GamepadAxis.LeftTrigger) + 1) / 2);
+                s.RightTrigger = U.Clamp01((Raylib.GetGamepadAxisMovement(r, GamepadAxis.RightTrigger) + 1) / 2);
+            }
+        }
+
+        foreach (var s in slots)
+        {
+            if (s.Source == PadSource.None) continue;
+            s.Dpad = new Vector2(
+                (s.Down[(int)GamepadButton.LeftFaceRight] ? 1 : 0) - (s.Down[(int)GamepadButton.LeftFaceLeft] ? 1 : 0),
+                (s.Down[(int)GamepadButton.LeftFaceUp] ? 1 : 0) - (s.Down[(int)GamepadButton.LeftFaceDown] ? 1 : 0));
+        }
+    }
+
+    static void Set(Slot s, GamepadButton b, bool down) => s.Down[(int)b] = down;
+
+    static bool SameDevice(string a, string b) =>
+        a.Length > 0 && b.Length > 0 && (a.Contains(b, StringComparison.OrdinalIgnoreCase) || b.Contains(a, StringComparison.OrdinalIgnoreCase));
+
+    static bool Valid(int pad) => pad >= 0 && pad < Max && slots[pad].Source != PadSource.None;
+
+    public static bool Available(int pad) => Valid(pad);
+    public static PadSource Source(int pad) => Valid(pad) ? slots[pad].Source : PadSource.None;
+    public static string Name(int pad) => Valid(pad) ? slots[pad].Name : "";
+    public static string Category(int pad) => Valid(pad) ? slots[pad].Category : "";
 
     public static List<int> Connected()
     {
         var list = new List<int>();
-        for (int i = 0; i < Max; i++) if (Raylib.IsGamepadAvailable(i)) list.Add(i);
+        for (int i = 0; i < Max; i++) if (Valid(i)) list.Add(i);
         return list;
     }
+
+    public static Vector2 RawStick(int pad) => Valid(pad) ? slots[pad].Stick : Vector2.Zero;
 
     // Radial deadzone with rescale, so small stick drift doesn't make fish wander off.
     public static Vector2 Stick(int pad)
     {
-        var v = new Vector2(Raylib.GetGamepadAxisMovement(pad, GamepadAxis.LeftX), -Raylib.GetGamepadAxisMovement(pad, GamepadAxis.LeftY));
+        var v = RawStick(pad);
         float len = v.Length();
         if (len < DeadZone) return Vector2.Zero;
         float scaled = MathF.Min(1, (len - DeadZone) / (1 - DeadZone));
         return v / len * scaled;
     }
 
-    public static Vector2 Dpad(int pad)
-    {
-        var m = Vector2.Zero;
-        if (Raylib.IsGamepadButtonDown(pad, GamepadButton.LeftFaceLeft)) m.X -= 1;
-        if (Raylib.IsGamepadButtonDown(pad, GamepadButton.LeftFaceRight)) m.X += 1;
-        if (Raylib.IsGamepadButtonDown(pad, GamepadButton.LeftFaceUp)) m.Y += 1;
-        if (Raylib.IsGamepadButtonDown(pad, GamepadButton.LeftFaceDown)) m.Y -= 1;
-        return m;
-    }
+    public static Vector2 Dpad(int pad) => Valid(pad) ? slots[pad].Dpad : Vector2.Zero;
+    public static float LeftTriggerValue(int pad) => Valid(pad) ? slots[pad].LeftTrigger : 0;
+    public static float RightTriggerValue(int pad) => Valid(pad) ? slots[pad].RightTrigger : 0;
 
-    // Triggers report -1 at rest on most mappings; some pads expose them as buttons instead.
-    public static bool RightTrigger(int pad) =>
-        Raylib.GetGamepadAxisMovement(pad, GamepadAxis.RightTrigger) > 0.3f || Raylib.IsGamepadButtonDown(pad, GamepadButton.RightTrigger2);
+    public static bool Down(int pad, GamepadButton b) => Valid(pad) && slots[pad].Down[(int)b];
+    public static bool Pressed(int pad, GamepadButton b) => Valid(pad) && slots[pad].Down[(int)b] && !slots[pad].Prev[(int)b];
+
+    public static bool RightTrigger(int pad) => RightTriggerValue(pad) > 0.3f || Down(pad, GamepadButton.RightTrigger2);
 
     public static bool AnyButtonPressed(int pad)
     {
-        for (int b = (int)GamepadButton.LeftFaceUp; b <= (int)GamepadButton.RightThumb; b++)
-            if (Raylib.IsGamepadButtonPressed(pad, (GamepadButton)b)) return true;
+        for (int b = 1; b < ButtonCount; b++)
+            if (Pressed(pad, (GamepadButton)b)) return true;
         return false;
     }
+
+    // Input Monitoring only matters for controllers read through raylib (IOKit HID).
+    public static bool PermissionProblem =>
+        MacPermissions.Blocked && Connected().Any(p => Source(p) == PadSource.Raylib);
 
     public static bool Active(int pad) =>
         AnyButtonPressed(pad) || Stick(pad) != Vector2.Zero || RightTrigger(pad);
 
-    public static string Name(int pad)
-    {
-        string n = Raylib.GetGamepadName_(pad);
-        return string.IsNullOrWhiteSpace(n) ? $"Controller {pad + 1}" : n.Trim();
-    }
-
-    public static bool Pressed(int pad, GamepadButton b) => Raylib.IsGamepadButtonPressed(pad, b);
-    public static bool AnyPressed(GamepadButton b) => Connected().Any(p => Raylib.IsGamepadButtonPressed(p, b));
-
+    // Rumble only goes through raylib; GameController haptics need CoreHaptics and aren't wired up.
     public static void Rumble(int pad, float strength, float seconds)
     {
-        if (pad < 0 || !Raylib.IsGamepadAvailable(pad)) return;
+        if (!Valid(pad) || slots[pad].RaylibIndex < 0) return;
         strength = U.Clamp01(strength);
-        Raylib.SetGamepadVibration(pad, strength, strength * 0.7f, seconds);
+        Raylib.SetGamepadVibration(slots[pad].RaylibIndex, strength, strength * 0.7f, seconds);
     }
 }
 
@@ -132,7 +226,7 @@ class HumanInput
         Jump = [.. a.Jump, .. b.Jump], Kick = [.. a.Kick, .. b.Kick], Dash = [.. a.Dash, .. b.Dash], Slap = [.. a.Slap, .. b.Slap],
     };
 
-    public Device Device => UsingPad && LastPad >= 0 && Raylib.IsGamepadAvailable(LastPad)
+    public Device Device => UsingPad && LastPad >= 0 && Pads.Available(LastPad)
         ? Device.Gamepad(Prompts.DetectFamily(LastPad))
         : Device.Keyboard(keySet);
 
@@ -161,10 +255,10 @@ class HumanInput
 
         foreach (int g in AssignedPads)
         {
-            if (!Raylib.IsGamepadAvailable(g)) continue;
+            if (!Pads.Available(g)) continue;
             if (Pads.Active(g)) { UsingPad = true; LastPad = g; }
             m += Pads.Stick(g) + Pads.Dpad(g);
-            kick |= Raylib.IsGamepadButtonDown(g, GamepadButton.RightFaceLeft) || Pads.RightTrigger(g);
+            kick |= Pads.Down(g, GamepadButton.RightFaceLeft) || Pads.RightTrigger(g);
             inp.JumpPressed |= Pads.Pressed(g, GamepadButton.RightFaceDown);
             inp.DashPressed |= Pads.Pressed(g, GamepadButton.RightFaceRight) || Pads.Pressed(g, GamepadButton.RightTrigger1);
             inp.SlapPressed |= Pads.Pressed(g, GamepadButton.RightFaceUp) || Pads.Pressed(g, GamepadButton.LeftTrigger1);
@@ -197,7 +291,7 @@ class MenuInput
     public int Vertical;
     public bool Confirm, Back, Pause, Quit;
 
-    public Device Device => UsingPad && LastPad >= 0 && Raylib.IsGamepadAvailable(LastPad)
+    public Device Device => UsingPad && LastPad >= 0 && Pads.Available(LastPad)
         ? Device.Gamepad(Prompts.DetectFamily(LastPad))
         : Device.Keyboard(Device.KeysMenu);
 
@@ -214,7 +308,7 @@ class MenuInput
 
         for (int g = 0; g < Pads.Max; g++)
         {
-            if (!Raylib.IsGamepadAvailable(g)) { prevY[g] = 0; continue; }
+            if (!Pads.Available(g)) { prevY[g] = 0; continue; }
             if (Pads.Active(g)) { UsingPad = true; LastPad = g; }
             float y = Pads.Stick(g).Y + Pads.Dpad(g).Y;
             if (y > 0.5f && prevY[g] <= 0.5f) Vertical--;

@@ -46,10 +46,11 @@ static class ControllerCheck
                 Console.WriteLine(BuildReport());
                 return;
             }
+            Pads.Update();
             if (Raylib.IsKeyPressed(KeyboardKey.Escape)) return;
             if (Raylib.IsKeyPressed(KeyboardKey.O)) MacPermissions.OpenSettings();
             for (int g = 0; g < Pads.Max; g++)
-                if (Raylib.IsGamepadAvailable(g) && Raylib.IsGamepadButtonPressed(g, GamepadButton.RightFaceUp))
+                if (Pads.Pressed(g, GamepadButton.RightFaceUp))
                     Pads.Rumble(g, 0.8f, 0.4f);
             Render();
         }
@@ -113,6 +114,8 @@ static class ControllerCheck
 
     // ------------------------------------------------------------------ verdicts
 
+    static string SourceName(int g) => Pads.Source(g) == PadSource.GameController ? "Apple GameController" : "raylib (IOKit HID)";
+
     static string UsageName(int usage) => usage switch
     {
         4 => "joystick", 5 => "gamepad", 8 => "multi-axis controller", 6 => "keyboard", 2 => "mouse",
@@ -122,7 +125,7 @@ static class ControllerCheck
     static List<string> Slots()
     {
         var s = new List<string>();
-        for (int g = 0; g < Pads.Max; g++) if (Raylib.IsGamepadAvailable(g)) s.Add(Pads.Name(g));
+        for (int g = 0; g < Pads.Max; g++) if (Pads.Available(g)) s.Add(Pads.Name(g));
         return s;
     }
 
@@ -148,7 +151,7 @@ static class ControllerCheck
             bool padLike = usages.Any(x => x is 4 or 5 or 8);
             string vendor = KnownVendors.GetValueOrDefault(d.Vendor, $"vendor 0x{d.Vendor:x4}");
             string title = $"{d.Product}  ({vendor}, {d.Transport}, 0x{d.Vendor:x4}:0x{d.ProductId:x4})";
-            if (padLike && MacPermissions.Blocked)
+            if (padLike && Pads.PermissionProblem)
                 result.Add((title, $"Connected, but {MacPermissions.Why} (see the red box above).", false));
             else if (padLike && slots.Any(s => NameMatch(s, d.Product)))
                 result.Add((title, "WORKS - the game sees it as a gamepad.", true));
@@ -178,10 +181,15 @@ static class ControllerCheck
 
     static string BuildReport()
     {
-        var lines = new List<string> { $"== macOS Input Monitoring: {MacPermissions.InputMonitoring()} (host app: {MacPermissions.HostApp()}) ==", "== Game (raylib) gamepad slots ==" };
+        var lines = new List<string>
+        {
+            $"== macOS Input Monitoring: {MacPermissions.InputMonitoring()} (host app: {MacPermissions.HostApp()}; only needed for raylib-read pads) ==",
+            $"== Apple GameController framework: {(MacGameController.Available ? $"{MacGameController.Controllers.Count} controller(s)" : "unavailable")} ==",
+            "== Game gamepad slots ==",
+        };
         for (int g = 0; g < Pads.Max; g++)
-            lines.Add(Raylib.IsGamepadAvailable(g)
-                ? $"  slot {g}: {Pads.Name(g)}  | axes: {Raylib.GetGamepadAxisCount(g)} | prompts: {Prompts.DetectFamily(g)}"
+            lines.Add(Pads.Available(g)
+                ? $"  slot {g}: {Pads.Name(g)} [{Pads.Category(g)}]  | via {SourceName(g)} | prompts: {Prompts.DetectFamily(g)}"
                 : $"  slot {g}: (empty)");
         lines.Add("== macOS HID controllers / devices from controller vendors ==");
         lock (scanLock)
@@ -210,7 +218,7 @@ static class ControllerCheck
         Raylib.DrawText("Plug in / pair controllers - this updates live.  Press Y / Triangle / X(Switch) to test rumble.  Esc to quit.", 40, 72, 18, U.Col(190, 205, 230));
 
         int y = 110;
-        if (MacPermissions.Blocked)
+        if (Pads.PermissionProblem)
         {
             Raylib.DrawRectangleRounded(new Rectangle(40, y - 6, W - 80, 84), 0.15f, 6, U.Col(120, 30, 40));
             Raylib.DrawText($"{MacPermissions.Why}: Input Monitoring is {MacPermissions.InputMonitoring().ToString().ToLowerInvariant()}.", 58, y + 4, 20, Color.White);
@@ -226,17 +234,18 @@ static class ControllerCheck
             int x = 40 + (g % 2) * (cardW + 20);
             int cy = y + (g / 2) * 150;
             Raylib.DrawRectangleRounded(new Rectangle(x, cy, cardW, 138), 0.1f, 6, new Color(30, 45, 75, 255));
-            if (!Raylib.IsGamepadAvailable(g))
+            if (!Pads.Available(g))
             {
                 Raylib.DrawText($"Slot {g}: empty", x + 16, cy + 14, 20, U.Col(120, 130, 150));
                 continue;
             }
             var fam = Prompts.DetectFamily(g);
             Raylib.DrawText($"Slot {g}: {Pads.Name(g)}", x + 16, cy + 12, 20, U.Col(140, 255, 180));
-            Raylib.DrawText($"{Raylib.GetGamepadAxisCount(g)} axes  -  {fam} prompts", x + 16, cy + 36, 16, U.Col(180, 190, 210));
+            Raylib.DrawText($"via {SourceName(g)}  -  {fam} prompts", x + 16, cy + 36, 16, U.Col(180, 190, 210));
 
             // Stick
-            var stick = new Vector2(Raylib.GetGamepadAxisMovement(g, GamepadAxis.LeftX), Raylib.GetGamepadAxisMovement(g, GamepadAxis.LeftY));
+            var raw = Pads.RawStick(g);
+            var stick = new Vector2(raw.X, -raw.Y);
             var c = new Vector2(x + 60, cy + 94);
             Raylib.DrawCircleLinesV(c, 30, U.Col(120, 140, 170));
             Raylib.DrawCircleV(c + stick * 30, 9, U.Col(255, 215, 80));
@@ -244,10 +253,10 @@ static class ControllerCheck
             // Face buttons, lit when held
             var faces = Prompts.FaceButtons(fam);
             for (int i = 0; i < 4; i++)
-                Prompts.DrawIcon(faces[i], x + 120 + i * 50, cy + 74, 40, Raylib.IsGamepadButtonDown(g, FaceOrder[i]) ? 1f : 0.25f);
+                Prompts.DrawIcon(faces[i], x + 120 + i * 50, cy + 74, 40, Pads.Down(g, FaceOrder[i]) ? 1f : 0.25f);
             // Triggers
-            float lt = (Raylib.GetGamepadAxisMovement(g, GamepadAxis.LeftTrigger) + 1) / 2;
-            float rt = (Raylib.GetGamepadAxisMovement(g, GamepadAxis.RightTrigger) + 1) / 2;
+            float lt = Pads.LeftTriggerValue(g);
+            float rt = Pads.RightTriggerValue(g);
             Raylib.DrawText("LT", x + 340, cy + 72, 14, Color.White);
             Raylib.DrawRectangle(x + 366, cy + 74, 80, 10, new Color(0, 0, 0, 120));
             Raylib.DrawRectangle(x + 366, cy + 74, (int)(80 * U.Clamp01(lt)), 10, U.Col(255, 150, 80));
