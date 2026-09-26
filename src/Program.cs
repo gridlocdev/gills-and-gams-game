@@ -4,7 +4,7 @@ namespace FishLegs;
 
 static class Program
 {
-    static void Main()
+    static void Main(string[] args)
     {
         Raylib.SetConfigFlags(ConfigFlags.Msaa4xHint | ConfigFlags.VSyncHint | ConfigFlags.ResizableWindow | ConfigFlags.HighDpiWindow);
         Raylib.InitWindow(1280, 720, "Gills & Gams - Competitive Fish-Leg Football");
@@ -15,6 +15,17 @@ static class Program
         Audio.Init();
         Draw.Init();
         Prompts.Load();
+        MacPermissions.Request();
+        if (args.Contains("--controllers"))
+        {
+            ControllerCheck.Run(args.Contains("--report"));
+            Prompts.Unload();
+            Raylib.UnloadShader(Draw.Lit);
+            Audio.Shutdown();
+            Raylib.CloseWindow();
+            return;
+        }
+
         var game = new Game();
 
         // FISHLEGS_SHOTS="dir" runs a scripted tour and saves screenshots (dev aid).

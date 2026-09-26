@@ -117,7 +117,11 @@ public class Game
         var removed = connectedPads.Except(now).ToList();
         connectedPads = now;
         AssignPads();
-        if (added.Count > 0)
+        if (added.Count > 0 && MacPermissions.Blocked)
+        {
+            toast = $"Controller found, but {MacPermissions.Why}. See HOW TO PLAY for the fix.";
+        }
+        else if (added.Count > 0)
         {
             int pad = added[0];
             string who = vsCpu ? "P1" : humans[0].AssignedPads.Contains(pad) ? "P1" : humans[1].AssignedPads.Contains(pad) ? "P2" : "nobody (spare)";
@@ -612,8 +616,14 @@ public class Game
 
         switch (state)
         {
-            case State.Title: Hud.Title(W, H, realTime, TitleItems, titleSel, menu.Device); break;
-            case State.HowTo: Hud.HowTo(W, H, menu.Device, connectedPads); break;
+            case State.Title:
+                Hud.Title(W, H, realTime, TitleItems, titleSel, menu.Device);
+                if (connectedPads.Count > 0 && MacPermissions.Blocked) Hud.PermissionWarning(W, 250);
+                break;
+            case State.HowTo:
+                Hud.HowTo(W, H, menu.Device, connectedPads);
+                if (connectedPads.Count > 0 && MacPermissions.Blocked) Hud.PermissionWarning(W, H - 150);
+                break;
             case State.Draft:
                 Hud.Draft(W, H, realTime, Fish, draftOptions, draftCursor, draftReady, lastScorer, vsCpu, [PlayerDevice(0), PlayerDevice(1)]);
                 break;

@@ -109,6 +109,20 @@ static class Prompts
 
     public static bool Has(string icon) => icons.ContainsKey(icon);
 
+    // Face buttons in positional order: bottom, right, left, top.
+    public static string[] FaceButtons(PadFamily f) => f switch
+    {
+        PadFamily.PlayStation => ["playstation_button_color_cross", "playstation_button_color_circle", "playstation_button_color_square", "playstation_button_color_triangle"],
+        PadFamily.Switch => ["switch_button_b", "switch_button_a", "switch_button_y", "switch_button_x"],
+        _ => ["xbox_button_color_a", "xbox_button_color_b", "xbox_button_color_x", "xbox_button_color_y"],
+    };
+
+    public static void DrawIcon(string name, int x, int y, int size, float alpha = 1)
+    {
+        if (icons.TryGetValue(name, out var tex))
+            Raylib.DrawTexturePro(tex, new Rectangle(0, 0, tex.Width, tex.Height), new Rectangle(x, y, size, size), Vector2.Zero, 0, U.WithAlpha(Color.White, alpha));
+    }
+
     /// <summary>Draws a binding at (x, y) with icons of the given height. Returns the width used.</summary>
     public static int Draw(Device d, Act a, int x, int y, int size, float alpha = 1)
     {

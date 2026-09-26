@@ -329,4 +329,13 @@ static class Hud
         Box(W / 2 - w / 2, y, w, 34, U.WithAlpha(U.Col(20, 60, 50), 0.92f * a), 0.5f);
         Raylib.DrawText(text, W / 2 - w / 2 + 18, y + 8, 18, U.WithAlpha(U.Col(170, 255, 200), a));
     }
+
+    public static void PermissionWarning(int W, int y)
+    {
+        string fix = MacPermissions.Fix;
+        int w = Math.Max(Raylib.MeasureText(fix, 16), Raylib.MeasureText(MacPermissions.Why, 20)) + 40;
+        Box(W / 2 - w / 2, y, w, 58, U.Col(120, 30, 40, 235), 0.25f);
+        U.TextCentered($"{MacPermissions.Why}!", W / 2, y + 8, 20, Color.White, 2);
+        U.TextCentered(fix, W / 2, y + 34, 16, U.Col(255, 210, 200), 1);
+    }
 }
