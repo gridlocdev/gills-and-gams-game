@@ -13,4 +13,8 @@
     <PackageReference Include="Raylib-cs" Version="8.1.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="assets/input-prompts/**" CopyToOutputDirectory="PreserveNewest" LinkBase="assets/input-prompts" />
+  </ItemGroup>
+
 </Project>

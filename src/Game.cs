@@ -21,6 +21,10 @@ public class Game
     readonly int[] score = new int[2];
 
     readonly HumanInput[] humans = new HumanInput[2];
+    readonly MenuInput menu = new();
+    List<int> connectedPads = new();
+    string toast = "";
+    float toastAge = 99;
     readonly AiInput[] ais = new AiInput[2];
     readonly PlayerInput[] pending = new PlayerInput[2];
 
@@ -79,9 +83,64 @@ public class Game
 
     void ConfigureInputs()
     {
-        humans[0] = new HumanInput(vsCpu ? HumanInput.Merge(HumanInput.P1Keys, HumanInput.P2Keys) : HumanInput.P1Keys, 0);
-        humans[1] = new HumanInput(HumanInput.P2Keys, 1);
+        humans[0] = new HumanInput(vsCpu ? HumanInput.Merge(HumanInput.P1Keys, HumanInput.P2Keys) : HumanInput.P1Keys, Device.KeysP1);
+        humans[1] = new HumanInput(HumanInput.P2Keys, Device.KeysP2);
+        AssignPads();
     }
+
+    // 1P: every pad drives P1. 2P: two+ pads -> one each; a single pad goes to P2 so P1 keeps WASD.
+    void AssignPads()
+    {
+        var pads = Pads.Connected();
+        if (vsCpu)
+        {
+            humans[0].AssignedPads = pads.ToArray();
+            humans[1].AssignedPads = [];
+        }
+        else if (pads.Count >= 2)
+        {
+            humans[0].AssignedPads = [pads[0]];
+            humans[1].AssignedPads = [pads[1]];
+        }
+        else
+        {
+            humans[0].AssignedPads = [];
+            humans[1].AssignedPads = pads.ToArray();
+        }
+    }
+
+    void WatchPads()
+    {
+        var now = Pads.Connected();
+        if (now.SequenceEqual(connectedPads)) return;
+        var added = now.Except(connectedPads).ToList();
+        var removed = connectedPads.Except(now).ToList();
+        connectedPads = now;
+        AssignPads();
+        if (added.Count > 0)
+        {
+            int pad = added[0];
+            string who = vsCpu ? "P1" : humans[0].AssignedPads.Contains(pad) ? "P1" : humans[1].AssignedPads.Contains(pad) ? "P2" : "nobody (spare)";
+            toast = $"Controller connected: {Pads.Name(pad)}  ->  {who}";
+            Pads.Rumble(pad, 0.4f, 0.25f);
+            Audio.Play(Sfx.Select, 1.3f, 0.6f);
+        }
+        else if (removed.Count > 0)
+        {
+            toast = "Controller disconnected. The fish is confused (more than usual).";
+            if (state is State.Play or State.Kickoff) paused = true;
+        }
+        toastAge = 0;
+    }
+
+    bool IsHuman(int id) => state is not (State.Title or State.HowTo) && !(vsCpu && id == 1) && !(DebugAiP1 && id == 0);
+
+    public void Rumble(int fishId, float strength, float seconds)
+    {
+        if (IsHuman(fishId)) humans[fishId].Rumble(strength, seconds);
+    }
+
+    Device PlayerDevice(int id) => humans[id].Device;
 
     // ------------------------------------------------------------------ event hooks used by entities
 
@@ -185,6 +244,8 @@ public class Game
         Fx.Bubbles(Ball.Pos, 30);
         Arena.Hype(1);
         Shake(0.8f);
+        Rumble(scorer, 0.5f, 0.5f);
+        Rumble(goalSide, 1f, 0.7f);
         commentAge = 99;
         Comment(Commentary.Goal(s, v, own, tech));
         if (own) techCount[goalSide]["owngoal"] = techCount[goalSide].GetValueOrDefault("owngoal") + 1;
@@ -199,6 +260,7 @@ public class Game
             case "draft": lastScorer = 0; StartDraft(); break;
             case "victory": score[0] = WinScore; lastScorer = 0; state = State.Goal; stateTime = 3.2f; break;
             case "howto": state = State.HowTo; break;
+            case "pause": paused = !paused; break;
         }
     }
 
@@ -245,6 +307,9 @@ public class Game
         realTime += frameDt;
         stateTime += frameDt;
         commentAge += frameDt;
+        toastAge += frameDt;
+        menu.Update();
+        WatchPads();
 
         // Gather input (edges are OR'd until a simulation step consumes them).
         for (int i = 0; i < 2; i++)
@@ -266,23 +331,26 @@ public class Game
         {
             case State.Title: UpdateTitle(); break;
             case State.HowTo:
-                if (MenuConfirm() || Raylib.IsKeyPressed(KeyboardKey.Escape)) { state = State.Title; Audio.Play(Sfx.Blip); }
+                if (menu.Confirm || menu.Back) { state = State.Title; Audio.Play(Sfx.Blip); }
                 break;
             case State.Draft: UpdateDraft(frameDt); break;
             case State.Victory:
-                if (stateTime > 1.5f && (MenuConfirm() || Raylib.IsKeyPressed(KeyboardKey.Escape))) { Audio.Play(Sfx.Select); GoToTitle(); }
+                if (stateTime > 1.5f && (menu.Confirm || menu.Back)) { Audio.Play(Sfx.Select); GoToTitle(); }
                 break;
         }
 
         if (state is State.Kickoff or State.Play or State.Goal)
         {
-            if (Raylib.IsKeyPressed(KeyboardKey.Escape) || Raylib.IsKeyPressed(KeyboardKey.P) ||
-                (Raylib.IsGamepadAvailable(0) && Raylib.IsGamepadButtonPressed(0, GamepadButton.MiddleRight)))
+            if (paused)
             {
-                paused = !paused;
+                if (menu.Quit) { paused = false; GoToTitle(); return; }
+                if (menu.Pause || menu.Back) { paused = false; Audio.Play(Sfx.Blip); }
+            }
+            else if (menu.Pause)
+            {
+                paused = true;
                 Audio.Play(Sfx.Blip);
             }
-            if (paused && Raylib.IsKeyPressed(KeyboardKey.Enter)) { paused = false; GoToTitle(); return; }
         }
         if (paused) return;
 
@@ -339,41 +407,18 @@ public class Game
         UpdateCamera(frameDt);
     }
 
-    bool MenuConfirm()
-    {
-        bool any = Raylib.IsKeyPressed(KeyboardKey.Enter) || Raylib.IsKeyPressed(KeyboardKey.Space);
-        for (int g = 0; g < 4; g++)
-            if (Raylib.IsGamepadAvailable(g) && (Raylib.IsGamepadButtonPressed(g, GamepadButton.RightFaceDown) || Raylib.IsGamepadButtonPressed(g, GamepadButton.MiddleRight)))
-                any = true;
-        return any;
-    }
-
-    int MenuVertical()
-    {
-        int d = 0;
-        if (Raylib.IsKeyPressed(KeyboardKey.Up) || Raylib.IsKeyPressed(KeyboardKey.W)) d--;
-        if (Raylib.IsKeyPressed(KeyboardKey.Down) || Raylib.IsKeyPressed(KeyboardKey.S)) d++;
-        for (int g = 0; g < 4; g++)
-            if (Raylib.IsGamepadAvailable(g))
-            {
-                if (Raylib.IsGamepadButtonPressed(g, GamepadButton.LeftFaceUp)) d--;
-                if (Raylib.IsGamepadButtonPressed(g, GamepadButton.LeftFaceDown)) d++;
-            }
-        return d;
-    }
-
     static readonly string[] TitleItems = { "VS ROBO-TROUT  (1 player)", "COUCH HOOLIGANS  (2 players)", "HOW TO PLAY", "QUIT" };
 
     void UpdateTitle()
     {
-        int d = MenuVertical();
+        int d = menu.Vertical;
         if (d != 0)
         {
             titleSel = (titleSel + d + TitleItems.Length) % TitleItems.Length;
             Audio.Play(Sfx.Blip);
         }
         if (Raylib.IsKeyPressed(KeyboardKey.Escape)) quit = true;
-        if (!MenuConfirm()) return;
+        if (!menu.Confirm) return;
         Audio.Play(Sfx.Select);
         switch (titleSel)
         {
@@ -462,6 +507,7 @@ public class Game
                 Popup(y.BodyCenter + Vector3.UnitY, "FLOP TACKLE!", U.Col(255, 200, 80));
                 Comment(Commentary.Tackle(x, y));
                 TechUsed(x, "tackle");
+                Rumble(x.Id, 0.5f, 0.15f);
                 Audio.Play(Sfx.Splat, 0.8f);
                 Audio.Play(Sfx.Slap, 0.6f);
                 Hitstop(0.08f);
@@ -566,13 +612,13 @@ public class Game
 
         switch (state)
         {
-            case State.Title: Hud.Title(W, H, realTime, TitleItems, titleSel); break;
-            case State.HowTo: Hud.HowTo(W, H); break;
+            case State.Title: Hud.Title(W, H, realTime, TitleItems, titleSel, menu.Device); break;
+            case State.HowTo: Hud.HowTo(W, H, menu.Device, connectedPads); break;
             case State.Draft:
-                Hud.Draft(W, H, realTime, Fish, draftOptions, draftCursor, draftReady, lastScorer, vsCpu);
+                Hud.Draft(W, H, realTime, Fish, draftOptions, draftCursor, draftReady, lastScorer, vsCpu, [PlayerDevice(0), PlayerDevice(1)]);
                 break;
             case State.Victory:
-                Hud.Victory(W, H, realTime, Fish[lastScorer], Fish[1 - lastScorer], score, techCount, stateTime);
+                Hud.Victory(W, H, realTime, Fish[lastScorer], Fish[1 - lastScorer], score, techCount, stateTime, menu.Device);
                 Hud.Comment(W, H, comment, commentAge);
                 break;
             default:
@@ -580,12 +626,13 @@ public class Game
                 Hud.Upgrades(W, Fish);
                 Hud.OverHead(cam, Fish, vsCpu);
                 Hud.Comment(W, H, comment, commentAge);
-                if (state == State.Kickoff) Hud.Countdown(W, H, stateTime, round == 0);
+                if (state == State.Kickoff) Hud.Countdown(W, H, stateTime, round == 0, vsCpu, [PlayerDevice(0), PlayerDevice(1)]);
                 if (state == State.Goal) Hud.GoalBanner(W, H, stateTime, Fish[lastScorer], Fish, score);
-                if (paused) Hud.Paused(W, H);
+                if (paused) Hud.Paused(W, H, menu.Device);
                 break;
         }
 
+        Hud.Toast(W, H, toast, toastAge);
         Raylib.EndDrawing();
     }
 

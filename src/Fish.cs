@@ -238,6 +238,7 @@ public class Fish
             if (S.WallRunner) DashCd = 0;
             Yaw = MathF.Atan2(Vel.Z, Vel.X);
             g.Popup(BodyCenter, "WALL KICK!", U.Col(120, 200, 255));
+            g.Rumble(Id, 0.25f, 0.08f);
             g.TechUsed(this, "wallkick");
             Audio.Play(Sfx.Kick, 1.4f, 0.8f);
             Audio.Play(Sfx.Boing, 1.2f, 0.5f);
@@ -313,6 +314,7 @@ public class Fish
             Audio.PlayVaried(Sfx.Splat, 0.1f);
             g.Fx.Spray(Pos + new Vector3(0, 0.3f, 0), new Vector3(0, 4, 0), 16);
             g.Shake(0.15f);
+            g.Rumble(Id, 0.35f, 0.15f);
         }
         else if (StunTimer <= 0)
         {
@@ -358,6 +360,7 @@ public class Fish
                 if (MathF.Abs(lateral) > 0.2f) ball.Spin = U.FromXZ(perp * lateral * (10 + 10 * power01));
             }
             ball.Touch(Id);
+            g.Rumble(Id, 0.2f + 0.6f * power01, 0.08f + 0.12f * charge);
 
             if (power01 > 0.75f)
             {
@@ -432,7 +435,11 @@ public class Fish
             g.Hype(0.3f);
             hitSomething = true;
         }
-        if (hitSomething) g.Hitstop(0.06f);
+        if (hitSomething)
+        {
+            g.Hitstop(0.06f);
+            g.Rumble(Id, 0.45f, 0.12f);
+        }
     }
 
     public void Stun(float t, Vector3 knock, Game g)
@@ -447,6 +454,7 @@ public class Fish
         eyeJigVel += new Vector2(U.Rand(-12, 12), U.Rand(-12, 12));
         Audio.Play(Sfx.Blub, U.Rand(0.9f, 1.2f));
         g.Fx.Stars(BodyCenter, 6);
+        g.Rumble(Id, 0.9f, 0.35f);
     }
 
     void CollideWalls(Game g)

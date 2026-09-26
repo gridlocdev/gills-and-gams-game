@@ -39,7 +39,7 @@ static class Hud
         }
     }
 
-    public static void Title(int W, int H, float t, string[] items, int sel)
+    public static void Title(int W, int H, float t, string[] items, int sel, Device dev)
     {
         Raylib.DrawRectangle(0, 0, W, H, new Color(0, 20, 50, 70));
         WobblyText("GILLS & GAMS", W / 2, 70, 96, Gold, t);
@@ -60,36 +60,42 @@ static class Hud
             }
             U.TextCentered(items[i], W / 2, y, 30, on ? Gold : U.Col(220, 230, 240));
         }
-        U.TextCentered("W/S or arrows to choose  -  Enter / Space to confirm  -  Gamepads supported", W / 2, H - 40, 18, U.Col(230, 240, 255));
+        Prompts.HintRow(W / 2, H - 56, 36, 20, U.Col(230, 240, 255), 36,
+            (dev, Act.Navigate, "Choose"), (dev, Act.Confirm, "Confirm"));
     }
 
-    public static void HowTo(int W, int H)
+    public static void HowTo(int W, int H, Device menuDev, List<int> pads)
     {
         Raylib.DrawRectangle(0, 0, W, H, new Color(5, 15, 35, 225));
-        U.TextCentered("HOW TO FOOTBALL (WITH LEGS)", W / 2, 30, 44, Gold);
+        U.TextCentered("HOW TO FOOTBALL (WITH LEGS)", W / 2, 24, 44, Gold);
 
-        string[,] rows =
+        var family = menuDev.Pad ? menuDev.Family : pads.Count > 0 ? Prompts.DetectFamily(pads[0]) : PadFamily.Xbox;
+        Device[] devs = { Device.Keyboard(Device.KeysP1), Device.Keyboard(Device.KeysP2), Device.Gamepad(family) };
+        (string label, Act act)[] rows =
         {
-            { "ACTION", "PLAYER 1", "PLAYER 2", "GAMEPAD" },
-            { "Move", "W A S D", "Arrow keys", "Left stick" },
-            { "Kick (hold to charge)", "B  or  E", "L", "X / RT" },
-            { "Jump (+ air jump)", "V  or  Space", ";", "A" },
-            { "Dash  /  Dive (in air)", "N  or  L-Shift", "K", "B / RB" },
-            { "Tail Slap (spin)", "C  or  Q", "J", "Y / LB" },
+            ("Move", Act.Move), ("Kick (hold to charge)", Act.Kick), ("Jump (+ air jump)", Act.Jump),
+            ("Dash  /  Dive (in air)", Act.Dash), ("Tail Slap (spin)", Act.Slap),
         };
-        int[] cols = { 90, 440, 680, 900 };
-        int y = 100;
-        for (int r = 0; r < rows.GetLength(0); r++)
+        int[] cols = { 90, 400, 640, 870 };
+        int y = 86;
+        string[] heads = { "ACTION", "PLAYER 1", "PLAYER 2", "GAMEPAD" };
+        for (int c = 0; c < 4; c++) U.TextShadow(heads[c], cols[c], y, 20, U.Col(150, 200, 255), 2);
+        y += 28;
+        const int icon = 34;
+        foreach (var (label, act) in rows)
         {
-            for (int c = 0; c < 4; c++)
-                U.TextShadow(rows[r, c], cols[c], y, 22, r == 0 ? U.Col(150, 200, 255) : Color.White, 2);
-            y += r == 0 ? 34 : 30;
+            U.TextShadow(label, cols[0], y + icon / 2 - 11, 22, Color.White, 2);
+            for (int c = 0; c < 3; c++) Prompts.Draw(devs[c], act, cols[c + 1], y, icon);
+            y += icon + 4;
         }
-        U.TextShadow("(In 1-player mode you can use either keyboard layout.)", cols[0], y + 2, 18, U.Col(180, 190, 210), 2);
+        U.TextShadow("Gamepads: in 1P any controller works. In 2P, two controllers = one each; with one controller it goes to P2 and P1 uses the keyboard.",
+            cols[0], y + 4, 16, U.Col(180, 190, 210), 2);
+        string padList = pads.Count == 0 ? "No controllers connected." : "Connected: " + string.Join(", ", pads.Select(p => Pads.Name(p)));
+        U.TextShadow(padList, cols[0], y + 26, 16, U.Col(150, 230, 180), 2);
 
-        y += 44;
-        U.TextShadow("MOVEMENT TECH", 90, y, 28, Gold);
-        y += 38;
+        y += 58;
+        U.TextShadow("MOVEMENT TECH", 90, y, 26, Gold);
+        y += 34;
         string[] tech =
         {
             "WAVEDASH  -  Dash right as you land from a jump: faster dash, cheaper cooldown.",
@@ -102,12 +108,12 @@ static class Hud
         };
         foreach (var line in tech)
         {
-            U.TextShadow(line, 100, y, 20, Color.White, 2);
-            y += 30;
+            U.TextShadow(line, 100, y, 19, Color.White, 2);
+            y += 27;
         }
-        y += 14;
-        U.TextShadow("First to 5 goals. After every goal both fish pick a MUTATION. The scored-on fish gets a bonus pity option.", 90, y, 20, U.Col(255, 200, 150), 2);
-        U.TextCentered("Press Enter / Space to go back", W / 2, H - 44, 22, Gold);
+        y += 8;
+        U.TextShadow("First to 5 goals. After every goal both fish pick a MUTATION. The scored-on fish gets a bonus pity option.", 90, y, 19, U.Col(255, 200, 150), 2);
+        Prompts.HintRow(W / 2, H - 52, 34, 20, Gold, 30, (menuDev, Act.Back, "Back"));
     }
 
     public static void Scoreboard(int W, Fish[] fish, int[] score, bool vsCpu)
@@ -186,25 +192,31 @@ static class Hud
             Raylib.DrawText(lines[i], 110, y + 26 + i * 24, 20, U.WithAlpha(Color.White, a));
     }
 
-    public static void Countdown(int W, int H, float t, bool showControls)
+    public static void Countdown(int W, int H, float t, bool showControls, bool vsCpu, Device[] devs)
     {
         string s = t < 0.5f ? "3" : t < 1.0f ? "2" : t < 1.5f ? "1" : "FLOP!";
         float local = t < 1.5f ? (t % 0.5f) / 0.5f : (t - 1.5f) / 0.5f;
         int size = (int)(120 * (1.3f - local * 0.3f));
         U.TextCentered(s, W / 2, H / 2 - size / 2 - 40, size, U.WithAlpha(Gold, 1 - local * 0.5f), 6);
 
-        if (showControls)
+        if (!showControls) return;
+        int players = vsCpu ? 1 : 2;
+        const int icon = 28;
+        for (int i = 0; i < players; i++)
         {
-            Box(14, H - 250, 330, 118, Panel, 0.2f);
-            string[] lines =
+            var d = devs[i];
+            int w = 300, h = 5 * (icon + 2) + 40;
+            int x = i == 0 ? 14 : W - 14 - w;
+            int y = H - 150 - h;
+            Box(x, y, w, h, Panel, 0.12f);
+            Raylib.DrawText(i == 0 ? "P1 CONTROLS" : "P2 CONTROLS", x + 12, y + 8, 16, Gold);
+            int yy = y + 30;
+            foreach (var (label, act) in new[] { ("Move", Act.Move), ("Kick (hold)", Act.Kick), ("Jump", Act.Jump), ("Dash / Dive", Act.Dash), ("Tail Slap", Act.Slap) })
             {
-                "P1: WASD  kick B/E  jump V/Space",
-                "    dash N/Shift  slap C/Q",
-                "P2: Arrows  kick L  jump ;",
-                "    dash K  slap J",
-                "Hold kick to charge. Try the tech!",
-            };
-            for (int i = 0; i < lines.Length; i++) Raylib.DrawText(lines[i], 26, H - 240 + i * 21, 16, Color.White);
+                Raylib.DrawText(label, x + 12, yy + icon / 2 - 8, 16, Color.White);
+                Prompts.Draw(d, act, x + 130, yy, icon);
+                yy += icon + 2;
+            }
         }
     }
 
@@ -218,15 +230,16 @@ static class Hud
         U.TextCentered($"{fish[0].Name}  {score[0]} - {score[1]}  {fish[1].Name}", W / 2, y + size + 54, 24, U.Col(220, 235, 255));
     }
 
-    public static void Paused(int W, int H)
+    public static void Paused(int W, int H, Device dev)
     {
         Raylib.DrawRectangle(0, 0, W, H, new Color(0, 10, 30, 170));
         U.TextCentered("PAUSED", W / 2, H / 2 - 80, 80, Gold);
         U.TextCentered("The fish are breathing heavily. Through what, nobody knows.", W / 2, H / 2 + 10, 22, Color.White);
-        U.TextCentered("Esc / P: resume     Enter: quit to title", W / 2, H / 2 + 60, 22, U.Col(200, 220, 255));
+        Prompts.HintRow(W / 2, H / 2 + 56, 36, 22, U.Col(200, 220, 255), 44,
+            (dev, Act.Pause, "Resume"), (dev, Act.Quit, "Quit to title"));
     }
 
-    public static void Draft(int W, int H, float t, Fish[] fish, List<Upgrade>[] options, int[] cursor, bool[] ready, int lastScorer, bool vsCpu)
+    public static void Draft(int W, int H, float t, Fish[] fish, List<Upgrade>[] options, int[] cursor, bool[] ready, int lastScorer, bool vsCpu, Device[] devs)
     {
         Raylib.DrawRectangle(0, 0, W, H, new Color(5, 10, 30, 170));
         WobblyText("LOCKER ROOM MUTATIONS", W / 2, 96, 46, Gold, t, 4);
@@ -265,15 +278,17 @@ static class Hud
                 float p = 0.5f + 0.5f * MathF.Sin(t * 8);
                 U.TextShadow("READY!", x + colW - 140, 196, 30, U.LerpColor(Gold, Color.White, p));
             }
+            else if (vsCpu && i == 1)
+                Raylib.DrawText("CPU is thinking (sort of)...", x, y + 4, 18, U.Col(200, 210, 230));
             else
             {
-                string hint = i == 0 ? "W/S + B/E/V to pick" : vsCpu ? "CPU is thinking (sort of)..." : "Up/Down + L/; to pick";
-                Raylib.DrawText(hint, x, y + 4, 18, U.Col(200, 210, 230));
+                int hx = x + Prompts.Hint(devs[i], Act.Navigate, "choose", x, y, 30, 18, U.Col(200, 210, 230)) + 24;
+                Prompts.Hint(devs[i], Act.Confirm, "pick", hx, y, 30, 18, U.Col(200, 210, 230));
             }
         }
     }
 
-    public static void Victory(int W, int H, float t, Fish winner, Fish loser, int[] score, Dictionary<string, int>[] tech, float st)
+    public static void Victory(int W, int H, float t, Fish winner, Fish loser, int[] score, Dictionary<string, int>[] tech, float st, Device dev)
     {
         Raylib.DrawRectangle(0, 0, W, H, new Color(0, 10, 30, 110));
         WobblyText($"{winner.Name} WINS!", W / 2, 60, 72, winner.TeamCol, t, 8);
@@ -302,6 +317,16 @@ static class Hud
                 Raylib.DrawText(stats[k], x + 20, y + 84 + k * 30, 18, Color.White);
         }
         if (st > 1.5f)
-            U.TextCentered("Press Enter / Space to return to the title screen", W / 2, H - 150, 22, U.WithAlpha(Gold, 0.6f + 0.4f * MathF.Sin(t * 5)));
+            Prompts.HintRow(W / 2, H - 156, 36, 22, U.WithAlpha(Gold, 0.6f + 0.4f * MathF.Sin(t * 5)), 30, (dev, Act.Confirm, "Back to the title screen"));
+    }
+
+    public static void Toast(int W, int H, string text, float age)
+    {
+        if (string.IsNullOrEmpty(text) || age > 3.5f) return;
+        float a = MathF.Min(1, MathF.Min(age * 6, (3.5f - age) * 2));
+        int w = Raylib.MeasureText(text, 18) + 36;
+        int y = (int)U.Lerp(-40, 96, MathF.Min(1, age * 5));
+        Box(W / 2 - w / 2, y, w, 34, U.WithAlpha(U.Col(20, 60, 50), 0.92f * a), 0.5f);
+        Raylib.DrawText(text, W / 2 - w / 2 + 18, y + 8, 18, U.WithAlpha(U.Col(170, 255, 200), a));
     }
 }

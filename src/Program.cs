@@ -14,13 +14,14 @@ static class Program
 
         Audio.Init();
         Draw.Init();
+        Prompts.Load();
         var game = new Game();
 
         // FISHLEGS_SHOTS="dir" runs a scripted tour and saves screenshots (dev aid).
         string shots = Environment.GetEnvironmentVariable("FISHLEGS_SHOTS");
         var script = new Dictionary<int, string>
         {
-            [90] = "shot:title", [100] = "howto", [130] = "shot:howto", [140] = "play", [420] = "shot:play1",
+            [90] = "shot:title", [100] = "howto", [130] = "shot:howto", [140] = "play", [175] = "shot:kickoff", [420] = "shot:play1", [600] = "pause", [610] = "shot:pause", [620] = "pause",
             [700] = "shot:play2", [900] = "shot:play3", [910] = "goal", [960] = "shot:goal", [1300] = "draft",
             [1400] = "shot:draft", [1410] = "victory", [1600] = "shot:victory", [1610] = "quit",
         };
@@ -44,6 +45,7 @@ static class Program
             frame++;
         }
 
+        Prompts.Unload();
         Raylib.UnloadShader(Draw.Lit);
         Audio.Shutdown();
         Raylib.CloseWindow();
